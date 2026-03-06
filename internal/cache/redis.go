@@ -10,9 +10,7 @@ import (
 )
 
 const (
-	DefaultRedisKey     = "gomodel:models"
-	DefaultRedisTTL     = 24 * time.Hour
-	ResponseCachePrefix = "gomodel:response:"
+	DefaultRedisTTL = 24 * time.Hour
 )
 
 // RedisStoreConfig holds configuration for generic Redis key-value store.

@@ -10,6 +10,8 @@ import (
 	"gomodel/internal/cache"
 )
 
+const responseCachePrefix = "gomodel:response:"
+
 // ResponseCacheMiddleware wraps response cache logic. App and server only see this type.
 type ResponseCacheMiddleware struct {
 	inner *simpleCacheMiddleware
@@ -27,7 +29,7 @@ func NewResponseCacheMiddleware(cfg config.ResponseCacheConfig) (*ResponseCacheM
 	}
 	store, err := cache.NewRedisStore(cache.RedisStoreConfig{
 		URL:    cfg.Simple.Redis.URL,
-		Prefix: cache.ResponseCachePrefix,
+		Prefix: responseCachePrefix,
 		TTL:    ttl,
 	})
 	if err != nil {

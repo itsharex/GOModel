@@ -1,13 +1,15 @@
-package cache
+package modelcache
 
 import (
 	"context"
 	"testing"
 	"time"
+
+	"gomodel/internal/cache"
 )
 
 func TestRedisModelCache_GetSet(t *testing.T) {
-	store := NewMapStore()
+	store := cache.NewMapStore()
 	defer store.Close()
 	c := NewRedisModelCacheWithStore(store, "test:models", time.Hour)
 	defer c.Close()
@@ -22,10 +24,15 @@ func TestRedisModelCache_GetSet(t *testing.T) {
 	}
 
 	mc := &ModelCache{
-		Version:   1,
 		UpdatedAt: time.Now(),
-		Models: map[string]CachedModel{
-			"gpt-4": {ProviderType: "openai", Object: "model", OwnedBy: "openai", Created: 123},
+		Providers: map[string]CachedProvider{
+			"openai": {
+				ProviderType: "openai",
+				OwnedBy:      "openai",
+				Models: []CachedModel{
+					{ID: "gpt-4", Created: 123},
+				},
+			},
 		},
 	}
 	if err := c.Set(ctx, mc); err != nil {
@@ -39,29 +46,35 @@ func TestRedisModelCache_GetSet(t *testing.T) {
 	if got == nil {
 		t.Fatal("expected non-nil ModelCache")
 	}
-	if got.Version != 1 {
-		t.Errorf("Version: got %d, want 1", got.Version)
+	if len(got.Providers) != 1 {
+		t.Errorf("Providers: got %d entries, want 1", len(got.Providers))
 	}
-	if len(got.Models) != 1 {
-		t.Errorf("Models: got %d entries, want 1", len(got.Models))
-	}
-	m, ok := got.Models["gpt-4"]
+	p, ok := got.Providers["openai"]
 	if !ok {
-		t.Fatal("expected gpt-4 in Models")
+		t.Fatal("expected openai in Providers")
 	}
-	if m.ProviderType != "openai" {
-		t.Errorf("ProviderType: got %s, want openai", m.ProviderType)
+	if p.ProviderType != "openai" {
+		t.Errorf("ProviderType: got %s, want openai", p.ProviderType)
+	}
+	if len(p.Models) != 1 {
+		t.Errorf("Models: got %d entries, want 1", len(p.Models))
+	}
+	if p.Models[0].ID != "gpt-4" {
+		t.Errorf("Model ID: got %s, want gpt-4", p.Models[0].ID)
 	}
 }
 
 func TestRedisModelCache_DefaultKeyAndTTL(t *testing.T) {
-	store := NewMapStore()
+	store := cache.NewMapStore()
 	defer store.Close()
 	c := NewRedisModelCacheWithStore(store, "", 0)
 	defer c.Close()
 
 	ctx := context.Background()
-	mc := &ModelCache{Version: 1, UpdatedAt: time.Now(), Models: map[string]CachedModel{}}
+	mc := &ModelCache{
+		UpdatedAt: time.Now(),
+		Providers: map[string]CachedProvider{},
+	}
 	if err := c.Set(ctx, mc); err != nil {
 		t.Fatalf("Set: %v", err)
 	}

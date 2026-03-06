@@ -1,4 +1,4 @@
-package cache
+package modelcache
 
 import (
 	"context"
@@ -6,16 +6,22 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"gomodel/internal/cache"
 )
 
-// RedisModelCacheConfig holds Redis config for model cache. Caller uses RedisStore.
+const (
+	DefaultRedisKey = "gomodel:models"
+)
+
+// RedisModelCacheConfig holds Redis config for model cache. Caller uses cache.RedisStore.
 type RedisModelCacheConfig struct {
 	URL string
 	Key string
 	TTL time.Duration
 }
 
-// NewRedisModelCache creates a Cache from RedisStore. Model-specific logic lives here.
+// NewRedisModelCache creates a Cache backed by a Redis store.
 func NewRedisModelCache(cfg RedisModelCacheConfig) (Cache, error) {
 	key := cfg.Key
 	if key == "" {
@@ -23,9 +29,9 @@ func NewRedisModelCache(cfg RedisModelCacheConfig) (Cache, error) {
 	}
 	ttl := cfg.TTL
 	if ttl == 0 {
-		ttl = DefaultRedisTTL
+		ttl = cache.DefaultRedisTTL
 	}
-	store, err := NewRedisStore(RedisStoreConfig{
+	store, err := cache.NewRedisStore(cache.RedisStoreConfig{
 		URL:    cfg.URL,
 		Prefix: "",
 		TTL:    ttl,
@@ -37,18 +43,19 @@ func NewRedisModelCache(cfg RedisModelCacheConfig) (Cache, error) {
 	return &redisModelCache{store: store, key: key, ttl: ttl}, nil
 }
 
-func NewRedisModelCacheWithStore(store Store, key string, ttl time.Duration) Cache {
+// NewRedisModelCacheWithStore creates a Cache from an existing Store (for testing).
+func NewRedisModelCacheWithStore(store cache.Store, key string, ttl time.Duration) Cache {
 	if key == "" {
 		key = DefaultRedisKey
 	}
 	if ttl == 0 {
-		ttl = DefaultRedisTTL
+		ttl = cache.DefaultRedisTTL
 	}
 	return &redisModelCache{store: store, key: key, ttl: ttl}
 }
 
 type redisModelCache struct {
-	store Store
+	store cache.Store
 	key   string
 	ttl   time.Duration
 }
