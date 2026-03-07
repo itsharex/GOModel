@@ -392,8 +392,8 @@ func buildDefaultConfig() *Config {
 				ModelList: ModelListConfig{
 					URL: "https://raw.githubusercontent.com/ENTERPILOT/ai-model-list/refs/heads/main/models.json",
 				},
-				Local: &LocalCacheConfig{CacheDir: ".cache"},
-				Redis: nil,
+			Local: nil,
+			Redis: nil,
 			},
 			Response: ResponseCacheConfig{},
 		},
@@ -459,6 +459,18 @@ func Load() (*LoadResult, error) {
 
 	if err := applyEnvOverrides(cfg); err != nil {
 		return nil, err
+	}
+
+	// Apply GOMODEL_CACHE_DIR: if it was set it targeted LocalCacheConfig.CacheDir,
+	// but applyEnvOverrides skips nil pointers. Allocate Local now so the env var
+	// takes effect, but only if Local isn't already set.
+	if cacheDir := os.Getenv("GOMODEL_CACHE_DIR"); cacheDir != "" && cfg.Cache.Model.Local == nil {
+		cfg.Cache.Model.Local = &LocalCacheConfig{CacheDir: cacheDir}
+	}
+
+	// When no model cache backend was specified at all, default to local.
+	if cfg.Cache.Model.Local == nil && cfg.Cache.Model.Redis == nil {
+		cfg.Cache.Model.Local = &LocalCacheConfig{}
 	}
 
 	if cfg.Server.BodySizeLimit != "" {

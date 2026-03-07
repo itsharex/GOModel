@@ -67,11 +67,8 @@ func TestBuildDefaultConfig(t *testing.T) {
 	if cfg.Server.Port != "8080" {
 		t.Errorf("expected Server.Port=8080, got %s", cfg.Server.Port)
 	}
-	if cfg.Cache.Model.Local == nil {
-		t.Error("expected Cache.Model.Local to be set")
-	}
-	if cfg.Cache.Model.Local.CacheDir != ".cache" {
-		t.Errorf("expected Cache.Model.Local.CacheDir=.cache, got %s", cfg.Cache.Model.Local.CacheDir)
+	if cfg.Cache.Model.Local != nil {
+		t.Error("expected Cache.Model.Local to be nil in raw defaults")
 	}
 	if cfg.Cache.Model.RefreshInterval != 3600 {
 		t.Errorf("expected Cache.Model.RefreshInterval=3600, got %d", cfg.Cache.Model.RefreshInterval)
@@ -178,7 +175,6 @@ server:
   port: "3000"
 cache:
   model:
-    local: null
     redis:
       url: "redis://myhost:6379"
       key: "custom:key"
@@ -212,6 +208,9 @@ logging:
 		}
 		if cfg.Cache.Model.Redis.TTL != 3600 {
 			t.Errorf("expected redis TTL 3600, got %d", cfg.Cache.Model.Redis.TTL)
+		}
+		if cfg.Cache.Model.Local != nil {
+			t.Errorf("expected Cache.Model.Local to be nil when redis is configured, got %v", cfg.Cache.Model.Local)
 		}
 		if !cfg.Logging.Enabled {
 			t.Error("expected Logging.Enabled=true from YAML")
@@ -425,8 +424,8 @@ func TestLoad_CacheDir(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Load() failed: %v", err)
 		}
-		if result.Config.Cache.Model.Local == nil || result.Config.Cache.Model.Local.CacheDir != ".cache" {
-			t.Errorf("expected Cache.Model.Local.CacheDir=.cache, got %v", result.Config.Cache.Model.Local)
+		if result.Config.Cache.Model.Local == nil {
+			t.Error("expected Cache.Model.Local to be set by default")
 		}
 	})
 
