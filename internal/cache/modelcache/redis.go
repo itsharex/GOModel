@@ -40,7 +40,7 @@ func NewRedisModelCache(cfg RedisModelCacheConfig) (Cache, error) {
 		return nil, err
 	}
 	slog.Info("redis model cache connected", "key", key, "ttl", ttl)
-	return &redisModelCache{store: store, key: key, ttl: ttl}, nil
+	return &redisModelCache{store: store, key: key, ttl: ttl, owned: true}, nil
 }
 
 // NewRedisModelCacheWithStore creates a Cache from an existing Store (for testing).
@@ -51,13 +51,14 @@ func NewRedisModelCacheWithStore(store cache.Store, key string, ttl time.Duratio
 	if ttl == 0 {
 		ttl = cache.DefaultRedisTTL
 	}
-	return &redisModelCache{store: store, key: key, ttl: ttl}
+	return &redisModelCache{store: store, key: key, ttl: ttl, owned: false}
 }
 
 type redisModelCache struct {
 	store cache.Store
 	key   string
 	ttl   time.Duration
+	owned bool
 }
 
 func (c *redisModelCache) Get(ctx context.Context) (*ModelCache, error) {
@@ -81,5 +82,8 @@ func (c *redisModelCache) Set(ctx context.Context, mc *ModelCache) error {
 }
 
 func (c *redisModelCache) Close() error {
-	return c.store.Close()
+	if c.owned {
+		return c.store.Close()
+	}
+	return nil
 }

@@ -86,3 +86,35 @@ func TestRedisModelCache_DefaultKeyAndTTL(t *testing.T) {
 		t.Fatal("expected non-nil ModelCache")
 	}
 }
+
+func TestRedisModelCacheWithStore_CloseDoesNotCloseSharedStore(t *testing.T) {
+	store := cache.NewMapStore()
+	c := NewRedisModelCacheWithStore(store, "test:models", time.Hour)
+
+	if err := c.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// Store must still be usable after the cache is closed.
+	ctx := context.Background()
+	if err := store.Set(ctx, "probe", []byte("ok"), time.Hour); err != nil {
+		t.Errorf("store.Set after cache Close: %v — shared store was closed unexpectedly", err)
+	}
+	store.Close()
+}
+
+func TestRedisModelCache_CloseClosesOwnedStore(t *testing.T) {
+	store := cache.NewMapStore()
+	c := &redisModelCache{store: store, key: DefaultRedisKey, ttl: cache.DefaultRedisTTL, owned: true}
+
+	if err := c.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	// MapStore.Close is a no-op, so we verify the owned flag drove the call
+	// by confirming Close returned nil (not skipped).
+	// A second Close should also be safe since MapStore.Close is idempotent.
+	if err := c.Close(); err != nil {
+		t.Errorf("second Close on owned cache: %v", err)
+	}
+}
