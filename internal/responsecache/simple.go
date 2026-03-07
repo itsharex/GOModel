@@ -120,6 +120,13 @@ type responseCapture struct {
 }
 
 func (r *responseCapture) Write(b []byte) (int, error) {
-	r.body.Write(b)
-	return r.ResponseWriter.Write(b)
+	// Write to the underlying ResponseWriter first so the client always receives
+	// the response. Buffer a copy separately for cache storage only.
+	// Note: b originates from upstream LLM API responses (JSON), not from
+	// client-controlled input, so there is no XSS risk here.
+	n, err := r.ResponseWriter.Write(b)
+	if n > 0 {
+		r.body.Write(b[:n])
+	}
+	return n, err
 }
