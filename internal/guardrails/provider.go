@@ -313,7 +313,13 @@ func (g *GuardedProvider) processResponses(ctx context.Context, req *core.Respon
 func chatToMessages(req *core.ChatRequest) []Message {
 	msgs := make([]Message, len(req.Messages))
 	for i, m := range req.Messages {
-		msgs[i] = Message{Role: m.Role, Content: m.Content}
+		msgs[i] = Message{
+			Role:        m.Role,
+			Content:     m.Content,
+			ToolCalls:   cloneToolCalls(m.ToolCalls),
+			ToolCallID:  m.ToolCallID,
+			ContentNull: m.ContentNull,
+		}
 	}
 	return msgs
 }
@@ -322,7 +328,17 @@ func chatToMessages(req *core.ChatRequest) []Message {
 func applyMessagesToChat(req *core.ChatRequest, msgs []Message) *core.ChatRequest {
 	coreMessages := make([]core.Message, len(msgs))
 	for i, m := range msgs {
-		coreMessages[i] = core.Message{Role: m.Role, Content: m.Content}
+		contentNull := m.ContentNull
+		if m.Content != "" {
+			contentNull = false
+		}
+		coreMessages[i] = core.Message{
+			Role:        m.Role,
+			Content:     m.Content,
+			ToolCalls:   cloneToolCalls(m.ToolCalls),
+			ToolCallID:  m.ToolCallID,
+			ContentNull: contentNull,
+		}
 	}
 	result := *req
 	result.Messages = coreMessages
@@ -354,4 +370,13 @@ func applyMessagesToResponses(req *core.ResponsesRequest, msgs []Message) *core.
 	}
 	result.Instructions = instructions
 	return &result
+}
+
+func cloneToolCalls(toolCalls []core.ToolCall) []core.ToolCall {
+	if len(toolCalls) == 0 {
+		return nil
+	}
+	cloned := make([]core.ToolCall, len(toolCalls))
+	copy(cloned, toolCalls)
+	return cloned
 }

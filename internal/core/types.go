@@ -1,6 +1,9 @@
 package core
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 // StreamOptions controls streaming behavior options.
 // This is used to request usage data in streaming responses.
@@ -20,36 +23,90 @@ type Reasoning struct {
 
 // ChatRequest represents the incoming chat completion request
 type ChatRequest struct {
-	Temperature   *float64       `json:"temperature,omitempty"`
-	MaxTokens     *int           `json:"max_tokens,omitempty"`
-	Model         string         `json:"model"`
-	Provider      string         `json:"provider,omitempty"`
-	Messages      []Message      `json:"messages"`
-	Stream        bool           `json:"stream,omitempty"`
-	StreamOptions *StreamOptions `json:"stream_options,omitempty"`
-	Reasoning     *Reasoning     `json:"reasoning,omitempty"`
+	Temperature       *float64         `json:"temperature,omitempty"`
+	MaxTokens         *int             `json:"max_tokens,omitempty"`
+	Model             string           `json:"model"`
+	Provider          string           `json:"provider,omitempty"`
+	Messages          []Message        `json:"messages"`
+	Tools             []map[string]any `json:"tools,omitempty"`
+	ToolChoice        any              `json:"tool_choice,omitempty"` // string or object
+	ParallelToolCalls *bool            `json:"parallel_tool_calls,omitempty"`
+	Stream            bool             `json:"stream,omitempty"`
+	StreamOptions     *StreamOptions   `json:"stream_options,omitempty"`
+	Reasoning         *Reasoning       `json:"reasoning,omitempty"`
 }
 
 // WithStreaming returns a shallow copy of the request with Stream set to true.
 // This avoids mutating the caller's request object.
 func (r *ChatRequest) WithStreaming() *ChatRequest {
-	return &ChatRequest{
-		Temperature:   r.Temperature,
-		MaxTokens:     r.MaxTokens,
-		Model:         r.Model,
-		Provider:      r.Provider,
-		Messages:      r.Messages,
-		Stream:        true,
-		StreamOptions: r.StreamOptions,
-		Reasoning:     r.Reasoning,
-	}
+	cp := *r
+	cp.Stream = true
+	return &cp
 }
 
 // Message represents a single message in the chat
 type Message struct {
-	Role      string     `json:"role"`
-	Content   string     `json:"content"`
-	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+	Role        string     `json:"role"`
+	Content     string     `json:"content"`
+	ToolCalls   []ToolCall `json:"tool_calls,omitempty"`
+	ToolCallID  string     `json:"tool_call_id,omitempty"`
+	ContentNull bool       `json:"-"`
+}
+
+// UnmarshalJSON accepts content as string or null for compatibility with
+// tool-calling responses that omit assistant text.
+func (m *Message) UnmarshalJSON(data []byte) error {
+	type rawMessage struct {
+		Role       string          `json:"role"`
+		Content    json.RawMessage `json:"content"`
+		ToolCalls  []ToolCall      `json:"tool_calls,omitempty"`
+		ToolCallID string          `json:"tool_call_id,omitempty"`
+	}
+
+	var raw rawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	m.Role = raw.Role
+	m.ContentNull = false
+	switch trimmed := bytes.TrimSpace(raw.Content); {
+	case len(trimmed) == 0:
+		m.Content = ""
+	case bytes.Equal(trimmed, []byte("null")):
+		m.Content = ""
+		m.ContentNull = true
+	default:
+		if err := json.Unmarshal(trimmed, &m.Content); err != nil {
+			return err
+		}
+	}
+	m.ToolCalls = raw.ToolCalls
+	m.ToolCallID = raw.ToolCallID
+
+	return nil
+}
+
+// MarshalJSON preserves explicit null content for tool-calling assistant messages.
+func (m Message) MarshalJSON() ([]byte, error) {
+	type rawMessage struct {
+		Role       string     `json:"role"`
+		Content    any        `json:"content"`
+		ToolCalls  []ToolCall `json:"tool_calls,omitempty"`
+		ToolCallID string     `json:"tool_call_id,omitempty"`
+	}
+
+	content := any(m.Content)
+	if m.ContentNull && m.Content == "" {
+		content = nil
+	}
+
+	return json.Marshal(rawMessage{
+		Role:       m.Role,
+		Content:    content,
+		ToolCalls:  m.ToolCalls,
+		ToolCallID: m.ToolCallID,
+	})
 }
 
 // ToolCall represents a single tool invocation emitted by a model.
