@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/echo/v5"
+	"github.com/labstack/echo/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gomodel/config"
 
 	"gomodel/internal/admin"
 	"gomodel/internal/admin/dashboard"
@@ -49,7 +50,6 @@ type Config struct {
 // New creates a new HTTP server
 func New(provider core.RoutableProvider, cfg *Config) *Server {
 	e := echo.New()
-	e.HideBanner = true
 
 	// Get loggers from config (may be nil)
 	var auditLogger auditlog.LoggerInterface
@@ -98,30 +98,33 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 	// Request logger with optional filtering for model-only interactions
 	if cfg != nil && cfg.LogOnlyModelInteractions {
 		e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-			Skipper: func(c echo.Context) bool {
+			Skipper: func(c *echo.Context) bool {
 				return !auditlog.IsModelInteractionPath(c.Request().URL.Path)
 			},
-			LogStatus:   true,
-			LogURI:      true,
-			LogError:    true,
-			LogMethod:   true,
-			LogLatency:  true,
-			LogProtocol: true,
-			LogRemoteIP: true,
-			LogHost:     true,
-			LogURIPath:  true,
-			LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			LogStatus:        true,
+			LogURI:           true,
+			LogMethod:        true,
+			LogLatency:       true,
+			LogProtocol:      true,
+			LogRemoteIP:      true,
+			LogHost:          true,
+			LogURIPath:       true,
+			LogUserAgent:     true,
+			LogRequestID:     true,
+			LogContentLength: true,
+			LogResponseSize:  true,
+			LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
 				slog.Info("REQUEST",
 					"method", v.Method,
 					"uri", v.URI,
 					"status", v.Status,
 					"latency", v.Latency.String(),
 					"host", v.Host,
-					"bytes_in", c.Request().ContentLength,
-					"bytes_out", c.Response().Size,
-					"user_agent", c.Request().UserAgent(),
+					"bytes_in", v.ContentLength,
+					"bytes_out", v.ResponseSize,
+					"user_agent", v.UserAgent,
 					"remote_ip", v.RemoteIP,
-					"request_id", c.Request().Header.Get("X-Request-ID"),
+					"request_id", v.RequestID,
 				)
 				return nil
 			},
@@ -136,12 +139,12 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 	if cfg != nil && cfg.BodySizeLimit != "" {
 		bodySizeLimit = cfg.BodySizeLimit
 	}
-	e.Use(middleware.BodyLimit(bodySizeLimit))
+	e.Use(middleware.BodyLimit(parseBodySizeLimitBytes(bodySizeLimit)))
 
 	// Request ID middleware (always active — ensures every request has a unique ID
 	// for usage tracking, audit logging, and response correlation)
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			id := c.Request().Header.Get("X-Request-ID")
 			if id == "" {
 				id = uuid.NewString()
@@ -216,17 +219,31 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 	}
 }
 
-// Start starts the HTTP server on the given address
-func (s *Server) Start(addr string) error {
-	return s.echo.Start(addr)
-}
-
-// Shutdown gracefully shuts down the HTTP server.
-func (s *Server) Shutdown(ctx context.Context) error {
-	return s.echo.Shutdown(ctx)
+// Start starts the HTTP server on the given address and exits when ctx is canceled.
+func (s *Server) Start(ctx context.Context, addr string) error {
+	sc := echo.StartConfig{
+		Address:    addr,
+		HideBanner: true,
+	}
+	return sc.Start(ctx, s.echo)
 }
 
 // ServeHTTP implements the http.Handler interface, allowing Server to be used with httptest
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.echo.ServeHTTP(w, r)
+}
+
+func parseBodySizeLimitBytes(limit string) int64 {
+	limit = strings.TrimSpace(limit)
+	if limit == "" {
+		return config.DefaultBodySizeLimit
+	}
+
+	value, err := config.ParseBodySizeLimitBytes(limit)
+	if err != nil {
+		slog.Warn("invalid body size limit, falling back to default", "configured", limit)
+		return config.DefaultBodySizeLimit
+	}
+
+	return value
 }
