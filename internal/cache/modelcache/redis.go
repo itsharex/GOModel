@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	// DefaultRedisKey is the Redis key used to store the model registry cache.
 	DefaultRedisKey = "gomodel:models"
 )
 
