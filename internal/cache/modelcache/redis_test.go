@@ -130,11 +130,25 @@ func TestRedisModelCache_CloseClosesOwnedStore(t *testing.T) {
 	}
 }
 
-// spyStore is a cache.Store that records how many times Close has been called.
+// spyStore is a cache.Store that records how many times Close and Set have been called.
 type spyStore struct {
 	closeCalls int
+	setCalls   int
 }
 
-func (s *spyStore) Get(_ context.Context, _ string) ([]byte, error)                    { return nil, nil }
-func (s *spyStore) Set(_ context.Context, _ string, _ []byte, _ time.Duration) error   { return nil }
-func (s *spyStore) Close() error                                                        { s.closeCalls++; return nil }
+func (s *spyStore) Get(_ context.Context, _ string) ([]byte, error)                  { return nil, nil }
+func (s *spyStore) Set(_ context.Context, _ string, _ []byte, _ time.Duration) error { s.setCalls++; return nil }
+func (s *spyStore) Close() error                                                      { s.closeCalls++; return nil }
+
+func TestRedisModelCache_SetNilReturnsError(t *testing.T) {
+	spy := &spyStore{}
+	c := &redisModelCache{store: spy, key: DefaultRedisKey, ttl: cache.DefaultRedisTTL, owned: false}
+
+	err := c.Set(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error when setting nil ModelCache, got nil")
+	}
+	if spy.setCalls != 0 {
+		t.Errorf("store.Set called %d time(s), want 0 — nil should be rejected before writing", spy.setCalls)
+	}
+}

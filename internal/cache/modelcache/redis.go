@@ -86,6 +86,9 @@ func (c *redisModelCache) Get(ctx context.Context) (*ModelCache, error) {
 }
 
 func (c *redisModelCache) Set(ctx context.Context, mc *ModelCache) error {
+	if mc == nil {
+		return fmt.Errorf("model cache set: nil ModelCache")
+	}
 	data, err := json.Marshal(mc)
 	if err != nil {
 		return fmt.Errorf("model cache marshal: %w", err)
