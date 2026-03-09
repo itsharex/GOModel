@@ -21,6 +21,7 @@ type ResponseCacheMiddleware struct {
 // returns a no-op middleware. All inner logic (simple, redis, etc.) is encapsulated.
 func NewResponseCacheMiddleware(cfg config.ResponseCacheConfig) (*ResponseCacheMiddleware, error) {
 	if cfg.Simple.Redis == nil || cfg.Simple.Redis.URL == "" {
+		slog.Warn("response cache is disabled; set cache.response.simple.redis.url to enable it")
 		return &ResponseCacheMiddleware{}, nil
 	}
 	ttl := time.Duration(cfg.Simple.Redis.TTL) * time.Second

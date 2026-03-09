@@ -66,6 +66,10 @@ func (m *simpleCacheMiddleware) Middleware() echo.MiddlewareFunc {
 				c.Response().Header().Set("X-Cache", "HIT")
 				c.Response().WriteHeader(http.StatusOK)
 				_, _ = c.Response().Write(cached)
+				slog.Info("response cache hit",
+					"path", path,
+					"request_id", c.Request().Header.Get("X-Request-ID"),
+				)
 				return nil
 			}
 			capture := &responseCapture{
