@@ -696,4 +696,39 @@ func TestLoad_EnvOnlyRedisResponseCache(t *testing.T) {
 			t.Errorf("expected REDIS_TTL_RESPONSES=1800, got %d", cfg.Cache.Response.Simple.Redis.TTL)
 		}
 	})
+
+func TestParseBodySizeLimitBytes(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		expected    int64
+		expectError bool
+	}{
+		{"empty string", "", 0, false},
+		{"plain number", "1048576", 1048576, false},
+		{"kilobytes", "2K", 2 * 1024, false},
+		{"megabytes", "10MB", 10 * 1024 * 1024, false},
+		{"whitespace trimmed", " 1M ", 1024 * 1024, false},
+		{"invalid format", "10B", 0, true},
+		{"below minimum", "100", 0, true},
+		{"above maximum", "1G", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseBodySizeLimitBytes(tt.input)
+			if tt.expectError {
+				if err == nil {
+					t.Fatalf("expected error for input %q, got nil", tt.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error for input %q: %v", tt.input, err)
+			}
+			if got != tt.expected {
+				t.Fatalf("ParseBodySizeLimitBytes(%q) = %d, want %d", tt.input, got, tt.expected)
+			}
+		})
+	}
 }

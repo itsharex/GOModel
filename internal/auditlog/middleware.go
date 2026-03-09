@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -18,7 +17,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/google/uuid"
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 )
 
 // Note: contextKey type and constants (LogEntryKey, LogEntryStreamingKey,
@@ -29,7 +28,7 @@ import (
 // then writes the log entry asynchronously.
 func Middleware(logger LoggerInterface) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			// Skip if logging is disabled
 			if logger == nil || !logger.Config().Enabled {
 				return next(c)
@@ -114,10 +113,10 @@ func Middleware(logger LoggerInterface) echo.MiddlewareFunc {
 			var responseCapture *responseBodyCapture
 			if cfg.LogBodies {
 				responseCapture = &responseBodyCapture{
-					ResponseWriter: c.Response().Writer,
+					ResponseWriter: c.Response(),
 					body:           &bytes.Buffer{},
 				}
-				c.Response().Writer = responseCapture
+				c.SetResponse(responseCapture)
 			}
 
 			// Execute the handler
@@ -126,23 +125,9 @@ func Middleware(logger LoggerInterface) echo.MiddlewareFunc {
 			// Calculate duration
 			entry.DurationNs = time.Since(start).Nanoseconds()
 
-			// Capture response metadata
-			// If the response has been committed (written to the client), use
-			// the actual status code. Otherwise, when err is an *echo.HTTPError
-			// (e.g. 405 Method Not Allowed), Echo's error handler hasn't written
-			// the response yet, so c.Response().Status still defaults to 200.
-			if c.Response().Committed {
-				entry.StatusCode = c.Response().Status
-			} else if err != nil {
-				var he *echo.HTTPError
-				if errors.As(err, &he) {
-					entry.StatusCode = he.Code
-				} else {
-					entry.StatusCode = http.StatusInternalServerError
-				}
-			} else {
-				entry.StatusCode = c.Response().Status
-			}
+			// ResolveResponseStatus applies Echo v5 precedence rules for committed responses,
+			// suggested status codes, and errors implementing HTTPStatusCoder.
+			_, entry.StatusCode = echo.ResolveResponseStatus(c.Response(), err)
 
 			// Log response headers if enabled
 			if cfg.LogHeaders {
@@ -243,6 +228,10 @@ func (r *responseBodyCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, http.ErrNotSupported
 }
 
+func (r *responseBodyCapture) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
 // extractHeaders extracts headers from a map[string][]string (http.Header or echo headers),
 // taking the first value for each key and redacting sensitive headers.
 func extractHeaders(headers map[string][]string) map[string]string {
@@ -271,7 +260,7 @@ func hashAPIKey(authHeader string) string {
 
 // EnrichEntry retrieves the log entry from context for enrichment by handlers.
 // This allows handlers to add model and provider information.
-func EnrichEntry(c echo.Context, model, provider string) {
+func EnrichEntry(c *echo.Context, model, provider string) {
 	entryVal := c.Get(string(LogEntryKey))
 	if entryVal == nil {
 		return
@@ -287,7 +276,7 @@ func EnrichEntry(c echo.Context, model, provider string) {
 }
 
 // EnrichEntryWithError adds error information to the log entry.
-func EnrichEntryWithError(c echo.Context, errorType, errorMessage string) {
+func EnrichEntryWithError(c *echo.Context, errorType, errorMessage string) {
 	entryVal := c.Get(string(LogEntryKey))
 	if entryVal == nil {
 		return
@@ -305,7 +294,7 @@ func EnrichEntryWithError(c echo.Context, errorType, errorMessage string) {
 }
 
 // EnrichEntryWithStream marks the log entry as a streaming request.
-func EnrichEntryWithStream(c echo.Context, stream bool) {
+func EnrichEntryWithStream(c *echo.Context, stream bool) {
 	entryVal := c.Get(string(LogEntryKey))
 	if entryVal == nil {
 		return

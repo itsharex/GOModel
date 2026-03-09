@@ -17,11 +17,6 @@ const docTemplate = `{
     "paths": {
         "/admin/api/v1/audit/conversation": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -63,16 +58,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/admin/api/v1/audit/log": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/api/v1/audit/log": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -179,16 +174,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/admin/api/v1/models": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/api/v1/models": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -212,16 +207,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/admin/api/v1/models/categories": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/api/v1/models/categories": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -245,16 +240,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/admin/api/v1/usage/daily": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/api/v1/usage/daily": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -310,16 +305,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/admin/api/v1/usage/log": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/api/v1/usage/log": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -396,16 +391,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/admin/api/v1/usage/models": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/api/v1/usage/models": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -455,16 +450,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/admin/api/v1/usage/summary": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/admin/api/v1/usage/summary": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -511,7 +506,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
             }
         },
         "/health": {
@@ -538,11 +538,6 @@ const docTemplate = `{
         },
         "/v1/batches": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
                 "produces": [
                     "application/json"
                 ],
@@ -595,14 +590,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -649,16 +644,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/batches/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/batches/{id}": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -712,16 +707,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/batches/{id}/cancel": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/batches/{id}/cancel": {
+            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -778,16 +773,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/batches/{id}/results": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/batches/{id}/results": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -847,16 +842,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/chat/completions": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/chat/completions": {
+            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -910,16 +905,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/embeddings": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/embeddings": {
+            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -972,16 +967,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/files": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/files": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -1046,14 +1041,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            },
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "post": {
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1111,16 +1106,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/files/{id}": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/files/{id}": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -1174,14 +1169,14 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            },
-            "delete": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            },
+            "delete": {
                 "produces": [
                     "application/json"
                 ],
@@ -1235,16 +1230,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/files/{id}/content": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/files/{id}/content": {
+            "get": {
                 "produces": [
                     "application/octet-stream"
                 ],
@@ -1298,16 +1293,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/models": {
-            "get": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/models": {
+            "get": {
                 "produces": [
                     "application/json"
                 ],
@@ -1334,16 +1329,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
-            }
-        },
-        "/v1/responses": {
-            "post": {
+                },
                 "security": [
                     {
                         "BearerAuth": []
                     }
-                ],
+                ]
+            }
+        },
+        "/v1/responses": {
+            "post": {
                 "consumes": [
                     "application/json"
                 ],
@@ -1396,7 +1391,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/core.GatewayError"
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ]
             }
         }
     },
@@ -1779,6 +1779,9 @@ const docTemplate = `{
                 "model": {
                     "type": "string"
                 },
+                "parallel_tool_calls": {
+                    "type": "boolean"
+                },
                 "provider": {
                     "type": "string"
                 },
@@ -1793,6 +1796,16 @@ const docTemplate = `{
                 },
                 "temperature": {
                     "type": "number"
+                },
+                "tool_choice": {
+                    "description": "string or object"
+                },
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
                 }
             }
         },
@@ -1835,7 +1848,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "message": {
-                    "$ref": "#/definitions/core.Message"
+                    "$ref": "#/definitions/core.ResponseMessage"
                 }
             }
         },
@@ -1853,6 +1866,23 @@ const docTemplate = `{
                 },
                 "rejected_prediction_tokens": {
                     "type": "integer"
+                }
+            }
+        },
+        "core.ContentPart": {
+            "type": "object",
+            "properties": {
+                "image_url": {
+                    "$ref": "#/definitions/core.ImageURLContent"
+                },
+                "input_audio": {
+                    "$ref": "#/definitions/core.InputAudioContent"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -2031,13 +2061,46 @@ const docTemplate = `{
                 }
             }
         },
+        "core.ImageURLContent": {
+            "type": "object",
+            "properties": {
+                "detail": {
+                    "type": "string"
+                },
+                "media_type": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "core.InputAudioContent": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string"
+                }
+            }
+        },
         "core.Message": {
             "type": "object",
             "properties": {
                 "content": {
-                    "type": "string"
+                    "description": "ContentSchema documents that ` + "`" + `content` + "`" + ` accepts either a plain string\nor an array of ContentPart values.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.ContentPart"
+                    },
+                    "x-oneof": "[{\"type\":\"null\"},{\"type\":\"string\"},{\"type\":\"array\",\"items\":{\"$ref\":\"#/definitions/core.ContentPart\"}}]"
                 },
                 "role": {
+                    "type": "string"
+                },
+                "tool_call_id": {
                     "type": "string"
                 },
                 "tool_calls": {
@@ -2257,6 +2320,27 @@ const docTemplate = `{
                 }
             }
         },
+        "core.ResponseMessage": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.ContentPart"
+                    },
+                    "x-oneof": "[{\"type\":\"null\"},{\"type\":\"string\"},{\"type\":\"array\",\"items\":{\"$ref\":\"#/definitions/core.ContentPart\"}}]"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "tool_calls": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.ToolCall"
+                    }
+                }
+            }
+        },
         "core.ResponsesContentItem": {
             "type": "object",
             "properties": {
@@ -2266,11 +2350,17 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "image_url": {
+                    "$ref": "#/definitions/core.ImageURLContent"
+                },
+                "input_audio": {
+                    "$ref": "#/definitions/core.InputAudioContent"
+                },
                 "text": {
                     "type": "string"
                 },
                 "type": {
-                    "description": "\"output_text\", etc.",
+                    "description": "\"output_text\", \"input_image\", \"input_audio\", etc.",
                     "type": "string"
                 }
             }
@@ -2286,9 +2376,52 @@ const docTemplate = `{
                 }
             }
         },
+        "core.ResponsesInputElement": {
+            "type": "object",
+            "properties": {
+                "arguments": {
+                    "type": "string"
+                },
+                "call_id": {
+                    "description": "Function call fields (type=\"function_call\")",
+                    "type": "string"
+                },
+                "content": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.ContentPart"
+                    },
+                    "x-oneof": "[{\"type\":\"string\"},{\"type\":\"array\",\"items\":{\"$ref\":\"#/definitions/core.ContentPart\"}}]"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "output": {
+                    "description": "Function call output fields (type=\"function_call_output\") — CallID shared above",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Message fields (type=\"\" or \"message\")",
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"message\", \"function_call\", \"function_call_output\"",
+                    "type": "string"
+                }
+            }
+        },
         "core.ResponsesOutputItem": {
             "type": "object",
             "properties": {
+                "arguments": {
+                    "type": "string"
+                },
+                "call_id": {
+                    "type": "string"
+                },
                 "content": {
                     "type": "array",
                     "items": {
@@ -2296,6 +2429,9 @@ const docTemplate = `{
                     }
                 },
                 "id": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "role": {
@@ -2314,9 +2450,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "input": {
-                    "description": "string or []ResponsesInputItem — see docs for array form",
-                    "type": "string",
-                    "example": "Tell me a joke"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core.ResponsesInputElement"
+                    },
+                    "x-oneof": "[{\"type\":\"string\"},{\"type\":\"array\",\"items\":{\"$ref\":\"#/definitions/core.ResponsesInputElement\"}}]"
                 },
                 "instructions": {
                     "type": "string"
@@ -2333,6 +2471,9 @@ const docTemplate = `{
                 "model": {
                     "type": "string"
                 },
+                "parallel_tool_calls": {
+                    "type": "boolean"
+                },
                 "provider": {
                     "type": "string"
                 },
@@ -2347,6 +2488,9 @@ const docTemplate = `{
                 },
                 "temperature": {
                     "type": "number"
+                },
+                "tool_choice": {
+                    "description": "string or object"
                 },
                 "tools": {
                     "type": "array",

@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"gomodel/config"
 	"gomodel/internal/cache"
@@ -51,7 +51,7 @@ func (m *ResponseCacheMiddleware) Middleware() echo.MiddlewareFunc {
 		return m.inner.Middleware()
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return next
+		return func(c *echo.Context) error { return next(c) }
 	}
 }
 

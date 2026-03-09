@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"gomodel/internal/cache"
 )
@@ -36,7 +36,7 @@ func newSimpleCacheMiddleware(store cache.Store, ttl time.Duration) *simpleCache
 
 func (m *simpleCacheMiddleware) Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			if m.store == nil {
 				return next(c)
 			}
@@ -69,14 +69,14 @@ func (m *simpleCacheMiddleware) Middleware() echo.MiddlewareFunc {
 				return nil
 			}
 			capture := &responseCapture{
-				ResponseWriter: c.Response().Writer,
+				ResponseWriter: c.Response(),
 				body:           &bytes.Buffer{},
 			}
-			c.Response().Writer = capture
+			c.SetResponse(capture)
 			if err := next(c); err != nil {
 				return err
 			}
-			if c.Response().Status == http.StatusOK && capture.body.Len() > 0 {
+			if capture.status == http.StatusOK && capture.body.Len() > 0 {
 				data := bytes.Clone(capture.body.Bytes())
 				m.wg.Add(1)
 				go func() {
@@ -137,7 +137,13 @@ func hashRequest(path string, body []byte) string {
 
 type responseCapture struct {
 	http.ResponseWriter
-	body *bytes.Buffer
+	body   *bytes.Buffer
+	status int
+}
+
+func (r *responseCapture) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
 }
 
 func (r *responseCapture) Flush() {
@@ -151,6 +157,9 @@ func (r *responseCapture) Write(b []byte) (int, error) {
 	// the response. Buffer a copy separately for cache storage only.
 	// Note: b originates from upstream LLM API responses (JSON), not from
 	// client-controlled input, so there is no XSS risk here.
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
 	n, err := r.ResponseWriter.Write(b)
 	if n > 0 {
 		r.body.Write(b[:n])

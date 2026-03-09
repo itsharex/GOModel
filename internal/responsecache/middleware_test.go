@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"gomodel/internal/cache"
 )
@@ -20,7 +20,7 @@ func TestSimpleCacheMiddleware_CacheHit(t *testing.T) {
 	mw := NewResponseCacheMiddlewareWithStore(store, time.Hour)
 	e := echo.New()
 	e.Use(mw.Middleware())
-	e.POST("/v1/chat/completions", func(c echo.Context) error {
+	e.POST("/v1/chat/completions", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"result": "cached"})
 	})
 
@@ -61,7 +61,7 @@ func TestSimpleCacheMiddleware_DifferentBodyDifferentKey(t *testing.T) {
 	mw := NewResponseCacheMiddlewareWithStore(store, time.Hour)
 	e := echo.New()
 	e.Use(mw.Middleware())
-	e.POST("/v1/chat/completions", func(c echo.Context) error {
+	e.POST("/v1/chat/completions", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"msg": c.Request().URL.Path})
 	})
 
@@ -92,7 +92,7 @@ func TestSimpleCacheMiddleware_SkipsStreaming(t *testing.T) {
 	e := echo.New()
 	e.Use(mw.Middleware())
 	callCount := 0
-	e.POST("/v1/chat/completions", func(c echo.Context) error {
+	e.POST("/v1/chat/completions", func(c *echo.Context) error {
 		callCount++
 		return c.JSON(http.StatusOK, map[string]string{"n": "1"})
 	})
@@ -142,7 +142,7 @@ func TestSimpleCacheMiddleware_SkipsNoCache(t *testing.T) {
 	e := echo.New()
 	e.Use(mw.Middleware())
 	callCount := 0
-	e.POST("/v1/chat/completions", func(c echo.Context) error {
+	e.POST("/v1/chat/completions", func(c *echo.Context) error {
 		callCount++
 		return c.JSON(http.StatusOK, map[string]string{"n": "1"})
 	})
@@ -170,7 +170,7 @@ func TestSimpleCacheMiddleware_NonCacheablePath(t *testing.T) {
 	e := echo.New()
 	e.Use(mw.Middleware())
 	callCount := 0
-	e.POST("/v1/models", func(c echo.Context) error {
+	e.POST("/v1/models", func(c *echo.Context) error {
 		callCount++
 		return c.JSON(http.StatusOK, map[string]string{"n": "1"})
 	})
@@ -191,7 +191,7 @@ func TestSimpleCacheMiddleware_CloseWaitsForPendingWrites(t *testing.T) {
 	mw := NewResponseCacheMiddlewareWithStore(store, time.Hour)
 	e := echo.New()
 	e.Use(mw.Middleware())
-	e.POST("/v1/chat/completions", func(c echo.Context) error {
+	e.POST("/v1/chat/completions", func(c *echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"result": "ok"})
 	})
 
@@ -219,7 +219,7 @@ func TestSimpleCacheMiddleware_BodyReadErrorPropagated(t *testing.T) {
 	e := echo.New()
 	e.Use(mw.Middleware())
 	handlerCalled := false
-	e.POST("/v1/chat/completions", func(c echo.Context) error {
+	e.POST("/v1/chat/completions", func(c *echo.Context) error {
 		handlerCalled = true
 		return c.JSON(http.StatusOK, map[string]string{"n": "1"})
 	})

@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v5"
 
 	"gomodel/internal/auditlog"
 	"gomodel/internal/core"
@@ -118,6 +118,10 @@ func (r *erroringReadCloser) Read(p []byte) (int, error) {
 
 func (r *erroringReadCloser) Close() error {
 	return nil
+}
+
+func setPathParam(c *echo.Context, name, value string) {
+	c.SetPathValues(echo.PathValues{{Name: name, Value: value}})
 }
 
 type capturingAuditLogger struct {
@@ -452,7 +456,7 @@ func TestChatCompletion(t *testing.T) {
 			Choices: []core.Choice{
 				{
 					Index:        0,
-					Message:      core.Message{Role: "assistant", Content: "Hello!"},
+					Message:      core.ResponseMessage{Role: "assistant", Content: "Hello!"},
 					FinishReason: "stop",
 				},
 			},
@@ -488,6 +492,61 @@ func TestChatCompletion(t *testing.T) {
 	}
 	if !strings.Contains(body, "Hello!") {
 		t.Errorf("response missing expected content, got: %s", body)
+	}
+}
+
+func TestChatCompletion_BindsMultimodalContent(t *testing.T) {
+	provider := &capturingProvider{
+		mockProvider: mockProvider{
+			supportedModels: []string{"gpt-4o-mini"},
+			response: &core.ChatResponse{
+				ID:      "chatcmpl-123",
+				Object:  "chat.completion",
+				Created: 1234567890,
+				Model:   "gpt-4o-mini",
+				Choices: []core.Choice{
+					{
+						Index:        0,
+						Message:      core.ResponseMessage{Role: "assistant", Content: "ok"},
+						FinishReason: "stop",
+					},
+				},
+			},
+		},
+	}
+
+	e := echo.New()
+	handler := NewHandler(provider, nil, nil, nil)
+
+	reqBody := `{"model":"gpt-4o-mini","messages":[{"role":"user","content":[{"type":"text","text":"Describe this image"},{"type":"image_url","image_url":{"url":"https://example.com/image.png","detail":"high"}}]}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handler.ChatCompletion(c)
+	if err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if provider.capturedChatReq == nil {
+		t.Fatal("expected chat request to be captured")
+	}
+
+	parts, ok := core.NormalizeContentParts(provider.capturedChatReq.Messages[0].Content)
+	if !ok {
+		t.Fatalf("captured content type = %T, want structured content", provider.capturedChatReq.Messages[0].Content)
+	}
+	if len(parts) != 2 {
+		t.Fatalf("len(parts) = %d, want 2", len(parts))
+	}
+	if parts[0].Type != "text" || parts[0].Text != "Describe this image" {
+		t.Fatalf("unexpected first part: %+v", parts[0])
+	}
+	if parts[1].Type != "image_url" || parts[1].ImageURL == nil || parts[1].ImageURL.URL != "https://example.com/image.png" {
+		t.Fatalf("unexpected second part: %+v", parts[1])
 	}
 }
 
@@ -1051,6 +1110,43 @@ func TestChatCompletion_InvalidJSON(t *testing.T) {
 	}
 }
 
+func TestChatCompletion_InvalidContentType(t *testing.T) {
+	provider := &capturingProvider{
+		mockProvider: mockProvider{
+			supportedModels: []string{"gpt-4o-mini"},
+		},
+	}
+
+	e := echo.New()
+	handler := NewHandler(provider, nil, nil, nil)
+
+	reqBody := `{"model":"gpt-4o-mini","messages":[{"role":"user","content":123}]}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := handler.ChatCompletion(c)
+	if err != nil {
+		t.Fatalf("handler returned error: %v", err)
+	}
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if provider.capturedChatReq != nil {
+		t.Fatal("provider should not have been called for invalid content")
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, "invalid request body") {
+		t.Fatalf("response should contain invalid request message, got: %s", body)
+	}
+	if !strings.Contains(body, "string or array of content parts") {
+		t.Fatalf("response should mention supported content types, got: %s", body)
+	}
+}
+
 func TestEmbeddings(t *testing.T) {
 	mock := &mockProvider{
 		supportedModels: []string{"text-embedding-3-small"},
@@ -1424,8 +1520,7 @@ func TestBatches_LifecycleEndpoints(t *testing.T) {
 	getRec := httptest.NewRecorder()
 	getCtx := e.NewContext(getReq, getRec)
 	getCtx.SetPath("/v1/batches/:id")
-	getCtx.SetParamNames("id")
-	getCtx.SetParamValues(created.ID)
+	setPathParam(getCtx, "id", created.ID)
 	if err := handler.GetBatch(getCtx); err != nil {
 		t.Fatalf("get handler returned error: %v", err)
 	}
@@ -1456,8 +1551,7 @@ func TestBatches_LifecycleEndpoints(t *testing.T) {
 	resRec := httptest.NewRecorder()
 	resCtx := e.NewContext(resReq, resRec)
 	resCtx.SetPath("/v1/batches/:id/results")
-	resCtx.SetParamNames("id")
-	resCtx.SetParamValues(created.ID)
+	setPathParam(resCtx, "id", created.ID)
 	if err := handler.BatchResults(resCtx); err != nil {
 		t.Fatalf("results handler returned error: %v", err)
 	}
@@ -1480,8 +1574,7 @@ func TestBatches_LifecycleEndpoints(t *testing.T) {
 	cancelRec := httptest.NewRecorder()
 	cancelCtx := e.NewContext(cancelReq, cancelRec)
 	cancelCtx.SetPath("/v1/batches/:id/cancel")
-	cancelCtx.SetParamNames("id")
-	cancelCtx.SetParamValues(created.ID)
+	setPathParam(cancelCtx, "id", created.ID)
 	if err := handler.CancelBatch(cancelCtx); err != nil {
 		t.Fatalf("cancel handler returned error: %v", err)
 	}
@@ -1540,8 +1633,7 @@ func TestBatchResults_PendingReturnsConflict(t *testing.T) {
 	resRec := httptest.NewRecorder()
 	resCtx := e.NewContext(resReq, resRec)
 	resCtx.SetPath("/v1/batches/:id/results")
-	resCtx.SetParamNames("id")
-	resCtx.SetParamValues(created.ID)
+	setPathParam(resCtx, "id", created.ID)
 	if err := handler.BatchResults(resCtx); err != nil {
 		t.Fatalf("results handler returned error: %v", err)
 	}
@@ -1637,8 +1729,7 @@ func TestBatchResults_LogsUsageOnce(t *testing.T) {
 	resRec1 := httptest.NewRecorder()
 	resCtx1 := e.NewContext(resReq1, resRec1)
 	resCtx1.SetPath("/v1/batches/:id/results")
-	resCtx1.SetParamNames("id")
-	resCtx1.SetParamValues(created.ID)
+	setPathParam(resCtx1, "id", created.ID)
 	if err := handler.BatchResults(resCtx1); err != nil {
 		t.Fatalf("results handler returned error: %v", err)
 	}
@@ -1651,8 +1742,7 @@ func TestBatchResults_LogsUsageOnce(t *testing.T) {
 	resRec2 := httptest.NewRecorder()
 	resCtx2 := e.NewContext(resReq2, resRec2)
 	resCtx2.SetPath("/v1/batches/:id/results")
-	resCtx2.SetParamNames("id")
-	resCtx2.SetParamValues(created.ID)
+	setPathParam(resCtx2, "id", created.ID)
 	if err := handler.BatchResults(resCtx2); err != nil {
 		t.Fatalf("second results handler returned error: %v", err)
 	}
@@ -1705,8 +1795,7 @@ func TestGetBatch_NotFound(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetPath("/v1/batches/:id")
-	c.SetParamNames("id")
-	c.SetParamValues("missing")
+	setPathParam(c, "id", "missing")
 
 	if err := handler.GetBatch(c); err != nil {
 		t.Fatalf("handler returned error: %v", err)
@@ -1762,6 +1851,14 @@ type capturingProvider struct {
 	mockProvider
 	capturedChatReq      *core.ChatRequest
 	capturedResponsesReq *core.ResponsesRequest
+}
+
+func (c *capturingProvider) ChatCompletion(_ context.Context, req *core.ChatRequest) (*core.ChatResponse, error) {
+	c.capturedChatReq = req
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.response, nil
 }
 
 func (c *capturingProvider) StreamChatCompletion(_ context.Context, req *core.ChatRequest) (io.ReadCloser, error) {
@@ -1932,8 +2029,7 @@ func TestGetDeleteAndContentFile(t *testing.T) {
 	getRec := httptest.NewRecorder()
 	getCtx := e.NewContext(getReq, getRec)
 	getCtx.SetPath("/v1/files/:id")
-	getCtx.SetParamNames("id")
-	getCtx.SetParamValues("file_1")
+	setPathParam(getCtx, "id", "file_1")
 	if err := handler.GetFile(getCtx); err != nil {
 		t.Fatalf("get handler returned error: %v", err)
 	}
@@ -1946,8 +2042,7 @@ func TestGetDeleteAndContentFile(t *testing.T) {
 	delRec := httptest.NewRecorder()
 	delCtx := e.NewContext(delReq, delRec)
 	delCtx.SetPath("/v1/files/:id")
-	delCtx.SetParamNames("id")
-	delCtx.SetParamValues("file_1")
+	setPathParam(delCtx, "id", "file_1")
 	if err := handler.DeleteFile(delCtx); err != nil {
 		t.Fatalf("delete handler returned error: %v", err)
 	}
@@ -1960,8 +2055,7 @@ func TestGetDeleteAndContentFile(t *testing.T) {
 	contentRec := httptest.NewRecorder()
 	contentCtx := e.NewContext(contentReq, contentRec)
 	contentCtx.SetPath("/v1/files/:id/content")
-	contentCtx.SetParamNames("id")
-	contentCtx.SetParamValues("file_1")
+	setPathParam(contentCtx, "id", "file_1")
 	if err := handler.GetFileContent(contentCtx); err != nil {
 		t.Fatalf("content handler returned error: %v", err)
 	}
@@ -2120,8 +2214,7 @@ func TestGetFileWithoutProviderSkipsProviderErrors(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.SetPath("/v1/files/:id")
-	c.SetParamNames("id")
-	c.SetParamValues("file_ok_1")
+	setPathParam(c, "id", "file_ok_1")
 
 	if err := handler.GetFile(c); err != nil {
 		t.Fatalf("handler returned error: %v", err)
