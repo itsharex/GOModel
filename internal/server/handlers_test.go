@@ -23,6 +23,17 @@ import (
 	"gomodel/internal/usage"
 )
 
+func withRequestSnapshotAndPrompt(req *http.Request, frame *core.RequestSnapshot) *http.Request {
+	if req == nil || frame == nil {
+		return req
+	}
+	ctx := core.WithRequestSnapshot(req.Context(), frame)
+	if prompt := core.DeriveWhiteBoxPrompt(frame); prompt != nil {
+		ctx = core.WithWhiteBoxPrompt(ctx, prompt)
+	}
+	return req.WithContext(ctx)
+}
+
 type chunkedReadCloser struct {
 	chunks [][]byte
 	index  int
@@ -787,7 +798,7 @@ func TestChatCompletion_UsesIngressFrameForDecoding(t *testing.T) {
 	req.Header.Set("X-Request-ID", "req-ingress-1")
 	req.Body = &explodingReadCloser{}
 
-	frame := core.NewIngressFrame(
+	frame := core.NewRequestSnapshot(
 		http.MethodPost,
 		"/v1/chat/completions",
 		nil,
@@ -803,9 +814,7 @@ func TestChatCompletion_UsesIngressFrameForDecoding(t *testing.T) {
 		"req-ingress-1",
 		nil,
 	)
-	ctx := core.WithIngressFrame(req.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	req = req.WithContext(ctx)
+	req = withRequestSnapshotAndPrompt(req, frame)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -824,7 +833,7 @@ func TestChatCompletion_UsesIngressFrameForDecoding(t *testing.T) {
 		t.Fatalf("response_format missing from ExtraFields: %+v", provider.capturedChatReq.ExtraFields)
 	}
 
-	env := core.GetSemanticEnvelope(c.Request().Context())
+	env := core.GetWhiteBoxPrompt(c.Request().Context())
 	if env == nil || env.CachedChatRequest() == nil {
 		t.Fatalf("expected semantic envelope to cache ChatRequest, got %+v", env)
 	}
@@ -862,7 +871,7 @@ func TestChatCompletion_NormalizesSemanticSelectorHints(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Body = &explodingReadCloser{}
 
-	frame := core.NewIngressFrame(
+	frame := core.NewRequestSnapshot(
 		http.MethodPost,
 		"/v1/chat/completions",
 		nil,
@@ -877,9 +886,7 @@ func TestChatCompletion_NormalizesSemanticSelectorHints(t *testing.T) {
 		"",
 		nil,
 	)
-	ctx := core.WithIngressFrame(req.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	req = req.WithContext(ctx)
+	req = withRequestSnapshotAndPrompt(req, frame)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -901,15 +908,15 @@ func TestChatCompletion_NormalizesSemanticSelectorHints(t *testing.T) {
 		t.Fatalf("captured provider = %q, want openai", provider.capturedChatReq.Provider)
 	}
 
-	env := core.GetSemanticEnvelope(c.Request().Context())
+	env := core.GetWhiteBoxPrompt(c.Request().Context())
 	if env == nil || env.CachedChatRequest() == nil {
 		t.Fatalf("expected semantic envelope to cache ChatRequest, got %+v", env)
 	}
-	if env.SelectorHints.Model != "gpt-5-mini" {
-		t.Fatalf("SelectorHints.Model = %q, want gpt-5-mini", env.SelectorHints.Model)
+	if env.RouteHints.Model != "gpt-5-mini" {
+		t.Fatalf("RouteHints.Model = %q, want gpt-5-mini", env.RouteHints.Model)
 	}
-	if env.SelectorHints.Provider != "openai" {
-		t.Fatalf("SelectorHints.Provider = %q, want openai", env.SelectorHints.Provider)
+	if env.RouteHints.Provider != "openai" {
+		t.Fatalf("RouteHints.Provider = %q, want openai", env.RouteHints.Provider)
 	}
 }
 
@@ -934,7 +941,7 @@ func TestResponses_UsesIngressFrameForDecoding(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Body = &explodingReadCloser{}
 
-	frame := core.NewIngressFrame(
+	frame := core.NewRequestSnapshot(
 		http.MethodPost,
 		"/v1/responses",
 		nil,
@@ -949,9 +956,7 @@ func TestResponses_UsesIngressFrameForDecoding(t *testing.T) {
 		"",
 		nil,
 	)
-	ctx := core.WithIngressFrame(req.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	req = req.WithContext(ctx)
+	req = withRequestSnapshotAndPrompt(req, frame)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -973,7 +978,7 @@ func TestResponses_UsesIngressFrameForDecoding(t *testing.T) {
 		t.Fatalf("input[0].x_trace missing from ExtraFields: %+v", input[0].ExtraFields)
 	}
 
-	env := core.GetSemanticEnvelope(c.Request().Context())
+	env := core.GetWhiteBoxPrompt(c.Request().Context())
 	if env == nil || env.CachedResponsesRequest() == nil {
 		t.Fatalf("expected semantic envelope to cache ResponsesRequest, got %+v", env)
 	}
@@ -1003,7 +1008,7 @@ func TestEmbeddings_UsesIngressFrameForDecoding(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Body = &explodingReadCloser{}
 
-	frame := core.NewIngressFrame(
+	frame := core.NewRequestSnapshot(
 		http.MethodPost,
 		"/v1/embeddings",
 		nil,
@@ -1019,9 +1024,7 @@ func TestEmbeddings_UsesIngressFrameForDecoding(t *testing.T) {
 		"",
 		nil,
 	)
-	ctx := core.WithIngressFrame(req.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	req = req.WithContext(ctx)
+	req = withRequestSnapshotAndPrompt(req, frame)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -1039,7 +1042,7 @@ func TestEmbeddings_UsesIngressFrameForDecoding(t *testing.T) {
 		t.Fatalf("x_meta missing from ExtraFields: %+v", provider.capturedEmbeddingReq.ExtraFields)
 	}
 
-	env := core.GetSemanticEnvelope(c.Request().Context())
+	env := core.GetWhiteBoxPrompt(c.Request().Context())
 	if env == nil || env.CachedEmbeddingRequest() == nil {
 		t.Fatalf("expected semantic envelope to cache EmbeddingRequest, got %+v", env)
 	}
@@ -1071,7 +1074,7 @@ func TestBatches_UsesIngressFrameForDecoding(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Body = &explodingReadCloser{}
 
-	frame := core.NewIngressFrame(
+	frame := core.NewRequestSnapshot(
 		http.MethodPost,
 		"/v1/batches",
 		nil,
@@ -1093,9 +1096,7 @@ func TestBatches_UsesIngressFrameForDecoding(t *testing.T) {
 		"",
 		nil,
 	)
-	ctx := core.WithIngressFrame(req.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	req = req.WithContext(ctx)
+	req = withRequestSnapshotAndPrompt(req, frame)
 
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
@@ -1119,7 +1120,7 @@ func TestBatches_UsesIngressFrameForDecoding(t *testing.T) {
 		t.Fatalf("x_item_flag missing from item ExtraFields: %+v", mock.capturedBatchReq.Requests[0].ExtraFields)
 	}
 
-	env := core.GetSemanticEnvelope(c.Request().Context())
+	env := core.GetWhiteBoxPrompt(c.Request().Context())
 	if env == nil || env.CachedBatchRequest() == nil {
 		t.Fatalf("expected semantic envelope to cache BatchRequest, got %+v", env)
 	}
@@ -1155,14 +1156,12 @@ func TestGetBatch_UsesSemanticEnvelopeRouteMetadata(t *testing.T) {
 	createCtx := e.NewContext(createReq, createRec)
 	require.NoError(t, handler.Batches(createCtx))
 
-	var created core.BatchResponse
-	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
+		var created core.BatchResponse
+		require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
 
-	getReq := httptest.NewRequest(http.MethodGet, "/v1/batches/wrong-id", nil)
-	frame := core.NewIngressFrame(http.MethodGet, "/v1/batches/"+created.ID, map[string]string{"id": created.ID}, nil, nil, "", nil, false, "", nil)
-	ctx := core.WithIngressFrame(getReq.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	getReq = getReq.WithContext(ctx)
+		getReq := httptest.NewRequest(http.MethodGet, "/v1/batches/wrong-id", nil)
+		frame := core.NewRequestSnapshot(http.MethodGet, "/v1/batches/"+created.ID, map[string]string{"id": created.ID}, nil, nil, "", nil, false, "", nil)
+		getReq = withRequestSnapshotAndPrompt(getReq, frame)
 
 	getRec := httptest.NewRecorder()
 	getCtx := e.NewContext(getReq, getRec)
@@ -1201,10 +1200,10 @@ func TestListBatches_UsesSemanticEnvelopeQueryMetadata(t *testing.T) {
 	createCtx := e.NewContext(createReq, createRec)
 	require.NoError(t, handler.Batches(createCtx))
 
-	listReq := httptest.NewRequest(http.MethodGet, "/v1/batches?limit=bad", nil)
-	frame := core.NewIngressFrame(
-		http.MethodGet,
-		"/v1/batches",
+		listReq := httptest.NewRequest(http.MethodGet, "/v1/batches?limit=bad", nil)
+		frame := core.NewRequestSnapshot(
+			http.MethodGet,
+			"/v1/batches",
 		nil,
 		map[string][]string{
 			"limit": {"1"},
@@ -1213,12 +1212,10 @@ func TestListBatches_UsesSemanticEnvelopeQueryMetadata(t *testing.T) {
 		"",
 		nil,
 		false,
-		"",
-		nil,
-	)
-	ctx := core.WithIngressFrame(listReq.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	listReq = listReq.WithContext(ctx)
+			"",
+			nil,
+		)
+		listReq = withRequestSnapshotAndPrompt(listReq, frame)
 
 	listRec := httptest.NewRecorder()
 	listCtx := e.NewContext(listReq, listRec)
@@ -3163,10 +3160,8 @@ func TestCreateFile(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/files", &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-	frame := core.NewIngressFrame(http.MethodPost, "/v1/files", nil, nil, nil, writer.FormDataContentType(), nil, false, "", nil)
-	ctx := core.WithIngressFrame(req.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	req = req.WithContext(ctx)
+	frame := core.NewRequestSnapshot(http.MethodPost, "/v1/files", nil, nil, nil, writer.FormDataContentType(), nil, false, "", nil)
+	req = withRequestSnapshotAndPrompt(req, frame)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -3179,15 +3174,15 @@ func TestCreateFile(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "\"object\":\"file\"") {
 		t.Fatalf("unexpected response body: %s", rec.Body.String())
 	}
-	env := core.GetSemanticEnvelope(c.Request().Context())
-	if env == nil || env.CachedFileRequest() == nil {
+	env := core.GetWhiteBoxPrompt(c.Request().Context())
+	if env == nil || env.CachedFileRouteInfo() == nil {
 		t.Fatal("expected file semantic envelope to be populated")
 	}
-	if env.CachedFileRequest().Purpose != "batch" {
-		t.Fatalf("purpose = %q, want batch", env.CachedFileRequest().Purpose)
+	if env.CachedFileRouteInfo().Purpose != "batch" {
+		t.Fatalf("purpose = %q, want batch", env.CachedFileRouteInfo().Purpose)
 	}
-	if env.CachedFileRequest().Filename != "requests.jsonl" {
-		t.Fatalf("filename = %q, want requests.jsonl", env.CachedFileRequest().Filename)
+	if env.CachedFileRouteInfo().Filename != "requests.jsonl" {
+		t.Fatalf("filename = %q, want requests.jsonl", env.CachedFileRouteInfo().Filename)
 	}
 }
 
@@ -3328,7 +3323,7 @@ func TestListFiles(t *testing.T) {
 	handler := NewHandler(mock, nil, nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/files?limit=5", nil)
-	frame := core.NewIngressFrame(
+	frame := core.NewRequestSnapshot(
 		http.MethodGet,
 		"/v1/files",
 		nil,
@@ -3342,9 +3337,7 @@ func TestListFiles(t *testing.T) {
 		"",
 		nil,
 	)
-	ctx := core.WithIngressFrame(req.Context(), frame)
-	ctx = core.WithSemanticEnvelope(ctx, core.BuildSemanticEnvelope(frame))
-	req = req.WithContext(ctx)
+	req = withRequestSnapshotAndPrompt(req, frame)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
@@ -3360,12 +3353,12 @@ func TestListFiles(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "\"id\":\"file_ok_1\"") {
 		t.Fatalf("unexpected response body: %s", rec.Body.String())
 	}
-	env := core.GetSemanticEnvelope(c.Request().Context())
-	if env == nil || env.CachedFileRequest() == nil {
+	env := core.GetWhiteBoxPrompt(c.Request().Context())
+	if env == nil || env.CachedFileRouteInfo() == nil {
 		t.Fatal("expected file semantic envelope to be populated")
 	}
-	if !env.CachedFileRequest().HasLimit || env.CachedFileRequest().Limit != 5 {
-		t.Fatalf("limit = %d/%v, want 5/true", env.CachedFileRequest().Limit, env.CachedFileRequest().HasLimit)
+	if !env.CachedFileRouteInfo().HasLimit || env.CachedFileRouteInfo().Limit != 5 {
+		t.Fatalf("limit = %d/%v, want 5/true", env.CachedFileRouteInfo().Limit, env.CachedFileRouteInfo().HasLimit)
 	}
 }
 
@@ -3797,7 +3790,7 @@ func TestProviderPassthrough_UsesConfiguredSupportedProviders(t *testing.T) {
 
 	e := echo.New()
 	handler := NewHandler(provider, nil, nil, nil)
-	handler.setSupportedPassthroughProviders([]string{"groq"})
+	handler.setEnabledPassthroughProviders([]string{"groq"})
 	e.POST("/p/:provider/*", handler.ProviderPassthrough)
 
 	req := httptest.NewRequest(http.MethodPost, "/p/groq/chat/completions", strings.NewReader(`{}`))

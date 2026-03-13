@@ -19,7 +19,7 @@ func (r testFileMultipartReader) Filename(name string) (string, bool) {
 func TestDecodeChatRequest_CachesOnSemanticEnvelope(t *testing.T) {
 	t.Parallel()
 
-	env := &SemanticEnvelope{Operation: "chat_completions"}
+	env := &WhiteBoxPrompt{OperationType: "chat_completions"}
 	first, err := DecodeChatRequest([]byte(`{"model":"gpt-4o-mini","provider":"openai","messages":[{"role":"user","content":"hi"}]}`), env)
 	if err != nil {
 		t.Fatalf("DecodeChatRequest() error = %v", err)
@@ -32,23 +32,23 @@ func TestDecodeChatRequest_CachesOnSemanticEnvelope(t *testing.T) {
 		t.Fatal("DecodeChatRequest() did not reuse cached request")
 	}
 	if env.CachedChatRequest() != first {
-		t.Fatal("SemanticEnvelope cached chat request was not reused")
+		t.Fatal("WhiteBoxPrompt cached chat request was not reused")
 	}
 	if !env.JSONBodyParsed {
 		t.Fatal("JSONBodyParsed = false, want true")
 	}
-	if env.SelectorHints.Model != "gpt-4o-mini" {
-		t.Fatalf("SelectorHints.Model = %q, want gpt-4o-mini", env.SelectorHints.Model)
+	if env.RouteHints.Model != "gpt-4o-mini" {
+		t.Fatalf("RouteHints.Model = %q, want gpt-4o-mini", env.RouteHints.Model)
 	}
-	if env.SelectorHints.Provider != "openai" {
-		t.Fatalf("SelectorHints.Provider = %q, want openai", env.SelectorHints.Provider)
+	if env.RouteHints.Provider != "openai" {
+		t.Fatalf("RouteHints.Provider = %q, want openai", env.RouteHints.Provider)
 	}
 }
 
 func TestBatchRouteMetadata_ValidatesAndCachesLimit(t *testing.T) {
 	t.Parallel()
 
-	env := &SemanticEnvelope{Operation: "batches"}
+	env := &WhiteBoxPrompt{OperationType: "batches"}
 	_, err := BatchRouteMetadata(env, "GET", "/v1/batches", nil, map[string][]string{
 		"limit": {"bad"},
 	})
@@ -63,7 +63,7 @@ func TestBatchRouteMetadata_ValidatesAndCachesLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BatchRouteMetadata() valid error = %v", err)
 	}
-	if req != env.CachedBatchMetadata() {
+	if req != env.CachedBatchRouteInfo() {
 		t.Fatal("BatchRouteMetadata() did not cache metadata on envelope")
 	}
 	if req.Action != BatchActionList {
@@ -77,26 +77,26 @@ func TestBatchRouteMetadata_ValidatesAndCachesLimit(t *testing.T) {
 func TestFileRouteMetadata_CachesProviderHint(t *testing.T) {
 	t.Parallel()
 
-	env := &SemanticEnvelope{Operation: "files"}
+	env := &WhiteBoxPrompt{OperationType: "files"}
 	req, err := FileRouteMetadata(env, "GET", "/v1/files", nil, map[string][]string{
 		"provider": {"openai"},
 	})
 	if err != nil {
 		t.Fatalf("FileRouteMetadata() error = %v", err)
 	}
-	if req != env.CachedFileRequest() {
+	if req != env.CachedFileRouteInfo() {
 		t.Fatal("FileRouteMetadata() did not cache metadata on envelope")
 	}
-	if env.SelectorHints.Provider != "openai" {
-		t.Fatalf("SelectorHints.Provider = %q, want openai", env.SelectorHints.Provider)
+	if env.RouteHints.Provider != "openai" {
+		t.Fatalf("RouteHints.Provider = %q, want openai", env.RouteHints.Provider)
 	}
 }
 
 func TestNormalizeModelSelector_UpdatesSemanticHints(t *testing.T) {
 	t.Parallel()
 
-	env := &SemanticEnvelope{
-		SelectorHints: SelectorHints{
+	env := &WhiteBoxPrompt{
+		RouteHints: RouteHints{
 			Model:    "openai/gpt-4o-mini",
 			Provider: "",
 		},
@@ -115,18 +115,18 @@ func TestNormalizeModelSelector_UpdatesSemanticHints(t *testing.T) {
 	if provider != "openai" {
 		t.Fatalf("provider = %q, want openai", provider)
 	}
-	if env.SelectorHints.Model != "gpt-4o-mini" {
-		t.Fatalf("SelectorHints.Model = %q, want gpt-4o-mini", env.SelectorHints.Model)
+	if env.RouteHints.Model != "gpt-4o-mini" {
+		t.Fatalf("RouteHints.Model = %q, want gpt-4o-mini", env.RouteHints.Model)
 	}
-	if env.SelectorHints.Provider != "openai" {
-		t.Fatalf("SelectorHints.Provider = %q, want openai", env.SelectorHints.Provider)
+	if env.RouteHints.Provider != "openai" {
+		t.Fatalf("RouteHints.Provider = %q, want openai", env.RouteHints.Provider)
 	}
 }
 
 func TestDecodeCanonicalSelector_UsesOperationCodec(t *testing.T) {
 	t.Parallel()
 
-	env := &SemanticEnvelope{Operation: "responses"}
+	env := &WhiteBoxPrompt{OperationType: "responses"}
 	model, provider, ok := DecodeCanonicalSelector([]byte(`{"model":"gpt-5-mini","provider":"openai","input":"hi"}`), env)
 	if !ok {
 		t.Fatal("DecodeCanonicalSelector() ok = false, want true")
@@ -142,11 +142,11 @@ func TestDecodeCanonicalSelector_UsesOperationCodec(t *testing.T) {
 	}
 }
 
-func TestEnrichFileCreateRequestSemantic_FillsMultipartMetadata(t *testing.T) {
+func TestEnrichFileCreateRouteInfo_FillsMultipartMetadata(t *testing.T) {
 	t.Parallel()
 
-	req := &FileRequestSemantic{Action: FileActionCreate}
-	req = EnrichFileCreateRequestSemantic(req, testFileMultipartReader{
+	req := &FileRouteInfo{Action: FileActionCreate}
+	req = EnrichFileCreateRouteInfo(req, testFileMultipartReader{
 		values: map[string]string{
 			"provider": "openai",
 			"purpose":  "batch",

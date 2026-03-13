@@ -8,10 +8,11 @@ type contextKey string
 const (
 	// RequestIDKey is the context key for the request ID.
 	requestIDKey contextKey = "request-id"
-	// ingressFrameKey stores the immutable ingress capture for the request.
-	ingressFrameKey contextKey = "ingress-frame"
-	// semanticEnvelopeKey stores the best-effort semantic extraction for the request.
-	semanticEnvelopeKey contextKey = "semantic-envelope"
+	// requestSnapshotKey stores the immutable transport snapshot for the request.
+	requestSnapshotKey contextKey = "request-snapshot"
+	// whiteBoxPromptKey stores the best-effort semantic extraction for the request.
+	whiteBoxPromptKey contextKey = "white-box-prompt"
+
 	// enforceReturningUsageDataKey stores whether streaming requests should ask providers
 	// to include usage when the provider supports it.
 	enforceReturningUsageDataKey contextKey = "enforce-returning-usage-data"
@@ -33,31 +34,31 @@ func GetRequestID(ctx context.Context) string {
 	return ""
 }
 
-// WithIngressFrame returns a new context with the ingress frame attached.
-func WithIngressFrame(ctx context.Context, frame *IngressFrame) context.Context {
-	return context.WithValue(ctx, ingressFrameKey, frame)
+// WithRequestSnapshot returns a new context with the request snapshot attached.
+func WithRequestSnapshot(ctx context.Context, snapshot *RequestSnapshot) context.Context {
+	return context.WithValue(ctx, requestSnapshotKey, snapshot)
 }
 
-// GetIngressFrame retrieves the ingress frame from the context.
-func GetIngressFrame(ctx context.Context) *IngressFrame {
-	if v := ctx.Value(ingressFrameKey); v != nil {
-		if frame, ok := v.(*IngressFrame); ok {
-			return frame
+// GetRequestSnapshot retrieves the request snapshot from the context.
+func GetRequestSnapshot(ctx context.Context) *RequestSnapshot {
+	if v := ctx.Value(requestSnapshotKey); v != nil {
+		if snapshot, ok := v.(*RequestSnapshot); ok {
+			return snapshot
 		}
 	}
 	return nil
 }
 
-// WithSemanticEnvelope returns a new context with the semantic envelope attached.
-func WithSemanticEnvelope(ctx context.Context, env *SemanticEnvelope) context.Context {
-	return context.WithValue(ctx, semanticEnvelopeKey, env)
+// WithWhiteBoxPrompt returns a new context with the white-box prompt attached.
+func WithWhiteBoxPrompt(ctx context.Context, prompt *WhiteBoxPrompt) context.Context {
+	return context.WithValue(ctx, whiteBoxPromptKey, prompt)
 }
 
-// GetSemanticEnvelope retrieves the semantic envelope from the context.
-func GetSemanticEnvelope(ctx context.Context) *SemanticEnvelope {
-	if v := ctx.Value(semanticEnvelopeKey); v != nil {
-		if env, ok := v.(*SemanticEnvelope); ok {
-			return env
+// GetWhiteBoxPrompt retrieves the white-box prompt from the context.
+func GetWhiteBoxPrompt(ctx context.Context) *WhiteBoxPrompt {
+	if v := ctx.Value(whiteBoxPromptKey); v != nil {
+		if prompt, ok := v.(*WhiteBoxPrompt); ok {
+			return prompt
 		}
 	}
 	return nil
