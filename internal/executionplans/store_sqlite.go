@@ -32,6 +32,7 @@ func NewSQLiteStore(db *sql.DB) (*SQLiteStore, error) {
 			scope_key TEXT NOT NULL,
 			version INTEGER NOT NULL,
 			active INTEGER NOT NULL DEFAULT 1,
+			managed_default INTEGER NOT NULL DEFAULT 0,
 			name TEXT NOT NULL,
 			description TEXT NOT NULL DEFAULT '',
 			plan_payload JSON NOT NULL,
@@ -54,6 +55,19 @@ func NewSQLiteStore(db *sql.DB) (*SQLiteStore, error) {
 	if _, err := db.Exec(`ALTER TABLE execution_plan_versions ADD COLUMN scope_user_path TEXT`); err != nil && !isSQLiteDuplicateColumnError(err) {
 		return nil, fmt.Errorf("initialize execution plan versions table: %w", err)
 	}
+	if _, err := db.Exec(`ALTER TABLE execution_plan_versions ADD COLUMN managed_default INTEGER NOT NULL DEFAULT 0`); err != nil && !isSQLiteDuplicateColumnError(err) {
+		return nil, fmt.Errorf("initialize execution plan versions table: %w", err)
+	}
+	if _, err := db.Exec(`
+		UPDATE execution_plan_versions
+		SET managed_default = 1
+		WHERE managed_default = 0
+		  AND scope_key = 'global'
+		  AND name = ?
+		  AND description = ?
+	`, ManagedDefaultGlobalName, ManagedDefaultGlobalDescription); err != nil {
+		return nil, fmt.Errorf("initialize execution plan versions table: %w", err)
+	}
 
 	return &SQLiteStore{db: db}, nil
 }
@@ -68,7 +82,7 @@ func isSQLiteDuplicateColumnError(err error) bool {
 
 func (s *SQLiteStore) ListActive(ctx context.Context) ([]Version, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, scope_provider, scope_model, scope_user_path, scope_key, version, active, name, description, plan_payload, plan_hash, created_at
+		SELECT id, scope_provider, scope_model, scope_user_path, scope_key, version, active, managed_default, name, description, plan_payload, plan_hash, created_at
 		FROM execution_plan_versions
 		WHERE active = 1
 		ORDER BY created_at DESC, id DESC
@@ -84,7 +98,7 @@ func (s *SQLiteStore) ListActive(ctx context.Context) ([]Version, error) {
 
 func (s *SQLiteStore) Get(ctx context.Context, id string) (*Version, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, scope_provider, scope_model, scope_user_path, scope_key, version, active, name, description, plan_payload, plan_hash, created_at
+		SELECT id, scope_provider, scope_model, scope_user_path, scope_key, version, active, managed_default, name, description, plan_payload, plan_hash, created_at
 		FROM execution_plan_versions
 		WHERE id = ?
 	`, id)
@@ -151,6 +165,7 @@ func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (*Version, 
 		ScopeKey:    scopeKey,
 		Version:     nextVersion,
 		Active:      input.Activate,
+		Managed:     input.Managed,
 		Name:        input.Name,
 		Description: input.Description,
 		Payload:     input.Payload,
@@ -160,8 +175,8 @@ func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (*Version, 
 
 	if _, err := conn.ExecContext(ctx, `
 		INSERT INTO execution_plan_versions (
-			id, scope_provider, scope_model, scope_user_path, scope_key, version, active, name, description, plan_payload, plan_hash, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			id, scope_provider, scope_model, scope_user_path, scope_key, version, active, managed_default, name, description, plan_payload, plan_hash, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		version.ID,
 		nullableString(version.Scope.Provider),
@@ -170,6 +185,126 @@ func (s *SQLiteStore) Create(ctx context.Context, input CreateInput) (*Version, 
 		version.ScopeKey,
 		version.Version,
 		boolToSQLite(version.Active),
+		boolToSQLite(version.Managed),
+		version.Name,
+		version.Description,
+		string(payloadJSON),
+		version.PlanHash,
+		version.CreatedAt.Unix(),
+	); err != nil {
+		return nil, fmt.Errorf("insert execution plan version: %w", err)
+	}
+
+	if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
+		return nil, fmt.Errorf("commit execution plan version: %w", err)
+	}
+	committed = true
+	return version, nil
+}
+
+func (s *SQLiteStore) EnsureManagedDefaultGlobal(ctx context.Context, input CreateInput, planHash string) (*Version, error) {
+	conn, err := s.db.Conn(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("acquire execution plan connection: %w", err)
+	}
+	defer func() {
+		_ = conn.Close()
+	}()
+	if _, err := conn.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
+		return nil, fmt.Errorf("begin execution plan transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if committed {
+			return
+		}
+		_, _ = conn.ExecContext(context.Background(), `ROLLBACK`)
+	}()
+
+	row := conn.QueryRowContext(ctx, `
+		SELECT id, scope_provider, scope_model, scope_user_path, scope_key, version, active, managed_default, name, description, plan_payload, plan_hash, created_at
+		FROM execution_plan_versions
+		WHERE scope_key = 'global' AND active = 1
+		ORDER BY created_at DESC, id DESC
+		LIMIT 1
+	`)
+	activeVersion, err := scanSQLiteVersion(row)
+	hasActive := true
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			hasActive = false
+		} else {
+			return nil, fmt.Errorf("load active global execution plan: %w", err)
+		}
+	}
+	if hasActive {
+		if !activeVersion.Managed {
+			if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
+				return nil, fmt.Errorf("commit execution plan transaction: %w", err)
+			}
+			committed = true
+			return nil, nil
+		}
+		if strings.TrimSpace(activeVersion.Name) == input.Name &&
+			strings.TrimSpace(activeVersion.Description) == input.Description &&
+			strings.TrimSpace(activeVersion.PlanHash) == planHash {
+			if _, err := conn.ExecContext(ctx, `COMMIT`); err != nil {
+				return nil, fmt.Errorf("commit execution plan transaction: %w", err)
+			}
+			committed = true
+			return nil, nil
+		}
+	}
+
+	var nextVersion int
+	if err := conn.QueryRowContext(ctx,
+		`SELECT COALESCE(MAX(version), 0) + 1 FROM execution_plan_versions WHERE scope_key = 'global'`,
+	).Scan(&nextVersion); err != nil {
+		return nil, fmt.Errorf("select next execution plan version: %w", err)
+	}
+
+	if hasActive {
+		if _, err := conn.ExecContext(ctx,
+			`UPDATE execution_plan_versions SET active = 0 WHERE id = ? AND active = 1`,
+			activeVersion.ID,
+		); err != nil {
+			return nil, fmt.Errorf("deactivate current execution plan version: %w", err)
+		}
+	}
+
+	payloadJSON, err := json.Marshal(input.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal execution plan payload: %w", err)
+	}
+
+	now := time.Now().UTC()
+	version := &Version{
+		ID:          uuid.NewString(),
+		Scope:       input.Scope,
+		ScopeKey:    "global",
+		Version:     nextVersion,
+		Active:      true,
+		Managed:     true,
+		Name:        input.Name,
+		Description: input.Description,
+		Payload:     input.Payload,
+		PlanHash:    planHash,
+		CreatedAt:   now,
+	}
+
+	if _, err := conn.ExecContext(ctx, `
+		INSERT INTO execution_plan_versions (
+			id, scope_provider, scope_model, scope_user_path, scope_key, version, active, managed_default, name, description, plan_payload, plan_hash, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`,
+		version.ID,
+		nullableString(version.Scope.Provider),
+		nullableString(version.Scope.Model),
+		nullableString(version.Scope.UserPath),
+		version.ScopeKey,
+		version.Version,
+		boolToSQLite(version.Active),
+		boolToSQLite(version.Managed),
 		version.Name,
 		version.Description,
 		string(payloadJSON),
@@ -218,6 +353,7 @@ func scanSQLiteVersion(scanner interface {
 		scopeModel    sql.NullString
 		scopeUserPath sql.NullString
 		active        int
+		managed       int
 		payloadJSON   string
 		createdAtUnix int64
 	)
@@ -230,6 +366,7 @@ func scanSQLiteVersion(scanner interface {
 		&version.ScopeKey,
 		&version.Version,
 		&active,
+		&managed,
 		&version.Name,
 		&version.Description,
 		&payloadJSON,
@@ -245,6 +382,7 @@ func scanSQLiteVersion(scanner interface {
 		UserPath: storedScopeUserPath(version.ScopeKey, scopeUserPath.String),
 	}
 	version.Active = active != 0
+	version.Managed = managed != 0
 	version.CreatedAt = time.Unix(createdAtUnix, 0).UTC()
 	if err := json.Unmarshal([]byte(payloadJSON), &version.Payload); err != nil {
 		return Version{}, fmt.Errorf("decode execution plan payload %q: %w", version.ID, err)

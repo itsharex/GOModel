@@ -30,6 +30,7 @@ function dashboard() {
         apiKey: '',
         theme: 'system',
         sidebarCollapsed: false,
+        settingsSubpage: 'general',
 
         // Date picker
         datePickerOpen: false,
@@ -113,9 +114,45 @@ function dashboard() {
             if (page === 'audit') {
                 page = 'audit-logs';
             }
-            page = (['overview', 'usage', 'models', 'workflows', 'audit-logs', 'auth-keys', 'settings'].includes(page)) ? page : 'overview';
             const sub = parts[1] || null;
+            if (page === 'settings' && sub === 'guardrails') {
+                return { page: 'guardrails', sub: null };
+            }
+            page = (['overview', 'usage', 'models', 'workflows', 'audit-logs', 'guardrails', 'auth-keys', 'settings'].includes(page)) ? page : 'overview';
             return { page, sub };
+        },
+
+        _normalizeSettingsSubpage(subpage) {
+            return 'general';
+        },
+
+        _settingsPath(subpage) {
+            return '/admin/dashboard/settings';
+        },
+
+        _applyRoute(page, sub) {
+            this.page = page;
+            this.settingsSubpage = page === 'settings'
+                ? this._normalizeSettingsSubpage(sub)
+                : 'general';
+
+            if (page === 'usage' && sub === 'costs') this.usageMode = 'costs';
+            if (page === 'usage' && sub !== 'costs') this.usageMode = 'tokens';
+            if (page === 'audit-logs') this.fetchAuditLog(true);
+            if (page === 'auth-keys' && typeof this.fetchAuthKeys === 'function') this.fetchAuthKeys();
+            if (page === 'workflows' && typeof this.fetchExecutionPlansPage === 'function') {
+                this.fetchExecutionPlansPage();
+            }
+            if (page === 'guardrails' && typeof this.fetchGuardrailsPage === 'function') {
+                this.fetchGuardrailsPage();
+            }
+            if (page === 'settings') {
+                if (typeof this.ensureTimezoneOptions === 'function') {
+                    this.ensureTimezoneOptions();
+                }
+            }
+            if (page === 'overview') this.renderChart();
+            if (page === 'usage') this.fetchUsagePage();
         },
 
         init() {
@@ -128,28 +165,11 @@ function dashboard() {
             this.applyTheme();
 
             const { page, sub } = this._parseRoute(window.location.pathname);
-            this.page = page;
-            if (page === 'usage' && sub === 'costs') this.usageMode = 'costs';
-            if (page === 'audit-logs') this.fetchAuditLog(true);
-            if (page === 'auth-keys' && typeof this.fetchAuthKeys === 'function') this.fetchAuthKeys();
-            if (page === 'settings' && typeof this.ensureTimezoneOptions === 'function') this.ensureTimezoneOptions();
+            this._applyRoute(page, sub);
 
             window.addEventListener('popstate', () => {
                 const { page: p, sub: s } = this._parseRoute(window.location.pathname);
-                this.page = p;
-                if (p === 'usage') {
-                    this.usageMode = s === 'costs' ? 'costs' : 'tokens';
-                    this.fetchUsagePage();
-                }
-                if (p === 'overview') this.renderChart();
-                if (p === 'audit-logs') this.fetchAuditLog(true);
-                if (p === 'auth-keys' && typeof this.fetchAuthKeys === 'function') this.fetchAuthKeys();
-                if (p === 'workflows' && typeof this.fetchExecutionPlansPage === 'function') {
-                    this.fetchExecutionPlansPage();
-                }
-                if (p === 'settings' && typeof this.ensureTimezoneOptions === 'function') {
-                    this.ensureTimezoneOptions();
-                }
+                this._applyRoute(p, s);
             });
 
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -168,15 +188,25 @@ function dashboard() {
         },
 
         navigate(page) {
-            this.page = page;
-            if (page === 'usage') this.usageMode = 'tokens';
+            if (page === 'settings') {
+                this.navigateSettings('general');
+                return;
+            }
+
             history.pushState(null, '', '/admin/dashboard/' + page);
-            if (page === 'overview') this.renderChart();
-            if (page === 'usage') this.fetchUsagePage();
-            if (page === 'workflows' && typeof this.fetchExecutionPlansPage === 'function') this.fetchExecutionPlansPage();
-            if (page === 'audit-logs') this.fetchAuditLog(true);
-            if (page === 'auth-keys' && typeof this.fetchAuthKeys === 'function') this.fetchAuthKeys();
-            if (page === 'settings' && typeof this.ensureTimezoneOptions === 'function') this.ensureTimezoneOptions();
+            this._applyRoute(page, null);
+        },
+
+        navigateSettings(subpage) {
+            const normalized = this._normalizeSettingsSubpage(subpage);
+            history.pushState(null, '', this._settingsPath(normalized));
+            this._applyRoute('settings', normalized);
+        },
+
+        guardrailsPageVisible() {
+            return typeof this.executionPlanRuntimeBooleanFlag === 'function'
+                ? this.executionPlanRuntimeBooleanFlag('GUARDRAILS_ENABLED', true)
+                : true;
         },
 
         setTheme(t) {
@@ -488,6 +518,10 @@ function dashboard() {
         resolveModuleFactory(
             typeof dashboardAuthKeysModule === 'function' ? dashboardAuthKeysModule : null,
             'dashboardAuthKeysModule'
+        ),
+        resolveModuleFactory(
+            typeof dashboardGuardrailsModule === 'function' ? dashboardGuardrailsModule : null,
+            'dashboardGuardrailsModule'
         ),
         resolveModuleFactory(
             typeof dashboardExecutionPlansModule === 'function' ? dashboardExecutionPlansModule : null,

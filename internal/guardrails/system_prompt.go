@@ -3,6 +3,7 @@ package guardrails
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 // SystemPromptMode defines how the system prompt guardrail modifies messages.
@@ -48,6 +49,23 @@ func NewSystemPromptGuardrail(name string, mode SystemPromptMode, content string
 		mode:    mode,
 		content: content,
 	}, nil
+}
+
+func effectiveSystemPromptMode(mode string) string {
+	resolved := SystemPromptMode(strings.TrimSpace(mode))
+	if resolved == "" {
+		return string(SystemPromptInject)
+	}
+	return string(resolved)
+}
+
+func isValidSystemPromptMode(mode string) bool {
+	switch SystemPromptMode(strings.TrimSpace(mode)) {
+	case SystemPromptInject, SystemPromptOverride, SystemPromptDecorator:
+		return true
+	default:
+		return false
+	}
 }
 
 // Name returns this instance's name.

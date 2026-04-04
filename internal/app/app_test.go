@@ -5,6 +5,7 @@ import (
 
 	"gomodel/config"
 	"gomodel/internal/admin"
+	"gomodel/internal/guardrails"
 )
 
 func TestRuntimeExecutionFeatureCaps_EnableFallbackFromOverride(t *testing.T) {
@@ -30,12 +31,156 @@ func TestDefaultExecutionPlanInput_SetsFallbackFeature(t *testing.T) {
 		},
 	}
 
-	input := defaultExecutionPlanInput(cfg)
+	input := defaultExecutionPlanInput(cfg, nil, nil)
 	if input.Payload.Features.Fallback == nil {
 		t.Fatal("defaultExecutionPlanInput().Payload.Features.Fallback = nil, want non-nil")
 	}
 	if !*input.Payload.Features.Fallback {
 		t.Fatal("defaultExecutionPlanInput().Payload.Features.Fallback = false, want true")
+	}
+}
+
+func TestDefaultExecutionPlanInput_IncludesConfiguredGuardrailsMissingFromLoadedCatalog(t *testing.T) {
+	cfg := &config.Config{
+		Guardrails: config.GuardrailsConfig{
+			Enabled: true,
+			Rules: []config.GuardrailRuleConfig{
+				{
+					Name:  "policy-system",
+					Type:  "system_prompt",
+					Order: 10,
+				},
+			},
+		},
+	}
+
+	input := defaultExecutionPlanInput(cfg, nil, []guardrails.Definition{
+		{Name: "policy-system", Type: "system_prompt"},
+	})
+
+	if !input.Payload.Features.Guardrails {
+		t.Fatal("defaultExecutionPlanInput().Payload.Features.Guardrails = false, want true")
+	}
+	if len(input.Payload.Guardrails) != 1 {
+		t.Fatalf("len(defaultExecutionPlanInput().Payload.Guardrails) = %d, want 1", len(input.Payload.Guardrails))
+	}
+	if got := input.Payload.Guardrails[0].Ref; got != "policy-system" {
+		t.Fatalf("defaultExecutionPlanInput().Payload.Guardrails[0].Ref = %q, want policy-system", got)
+	}
+}
+
+func TestDefaultExecutionPlanInput_TrimsConfiguredGuardrailRefs(t *testing.T) {
+	cfg := &config.Config{
+		Guardrails: config.GuardrailsConfig{
+			Enabled: true,
+			Rules: []config.GuardrailRuleConfig{
+				{
+					Name:  "  policy-system  ",
+					Type:  "system_prompt",
+					Order: 10,
+				},
+			},
+		},
+	}
+
+	input := defaultExecutionPlanInput(cfg, []string{"policy-system"}, nil)
+	if len(input.Payload.Guardrails) != 1 {
+		t.Fatalf("len(defaultExecutionPlanInput().Payload.Guardrails) = %d, want 1", len(input.Payload.Guardrails))
+	}
+	if got := input.Payload.Guardrails[0].Ref; got != "policy-system" {
+		t.Fatalf("defaultExecutionPlanInput().Payload.Guardrails[0].Ref = %q, want policy-system", got)
+	}
+}
+
+func TestConfigGuardrailDefinitions_DisabledIgnoresInvalidRules(t *testing.T) {
+	definitions, err := configGuardrailDefinitions(config.GuardrailsConfig{
+		Enabled: false,
+		Rules: []config.GuardrailRuleConfig{
+			{
+				Name: "draft-rule",
+				Type: "future_guardrail_type",
+				SystemPrompt: config.SystemPromptSettings{
+					Content: "",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("configGuardrailDefinitions() error = %v, want nil", err)
+	}
+	if len(definitions) != 0 {
+		t.Fatalf("len(configGuardrailDefinitions()) = %d, want 0", len(definitions))
+	}
+}
+
+func TestConfigGuardrailDefinitions_EnabledRejectsUnknownType(t *testing.T) {
+	_, err := configGuardrailDefinitions(config.GuardrailsConfig{
+		Enabled: true,
+		Rules: []config.GuardrailRuleConfig{
+			{
+				Name: "draft-rule",
+				Type: "future_guardrail_type",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("configGuardrailDefinitions() error = nil, want unsupported type error")
+	}
+}
+
+func TestConfigGuardrailDefinitions_TrimAndCanonicalizeRuleIdentity(t *testing.T) {
+	definitions, err := configGuardrailDefinitions(config.GuardrailsConfig{
+		Enabled: true,
+		Rules: []config.GuardrailRuleConfig{
+			{
+				Name: "  policy-system  ",
+				Type: "  SYSTEM_PROMPT  ",
+				SystemPrompt: config.SystemPromptSettings{
+					Mode:    "inject",
+					Content: "be precise",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("configGuardrailDefinitions() error = %v", err)
+	}
+	if len(definitions) != 1 {
+		t.Fatalf("len(configGuardrailDefinitions()) = %d, want 1", len(definitions))
+	}
+	if definitions[0].Name != "policy-system" {
+		t.Fatalf("definitions[0].Name = %q, want policy-system", definitions[0].Name)
+	}
+	if definitions[0].Type != "system_prompt" {
+		t.Fatalf("definitions[0].Type = %q, want system_prompt", definitions[0].Type)
+	}
+}
+
+func TestConfigGuardrailDefinitions_RejectsBlankNameOrType(t *testing.T) {
+	_, err := configGuardrailDefinitions(config.GuardrailsConfig{
+		Enabled: true,
+		Rules: []config.GuardrailRuleConfig{
+			{
+				Name: "   ",
+				Type: "system_prompt",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("configGuardrailDefinitions() error = nil, want name validation error")
+	}
+
+	_, err = configGuardrailDefinitions(config.GuardrailsConfig{
+		Enabled: true,
+		Rules: []config.GuardrailRuleConfig{
+			{
+				Name: "policy-system",
+				Type: "   ",
+			},
+		},
+	})
+	if err == nil {
+		t.Fatal("configGuardrailDefinitions() error = nil, want type validation error")
 	}
 }
 

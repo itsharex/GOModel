@@ -15,6 +15,11 @@ import (
 	"gomodel/internal/guardrails"
 )
 
+const (
+	ManagedDefaultGlobalName        = "default-global"
+	ManagedDefaultGlobalDescription = "Bootstrapped from runtime configuration"
+)
+
 // CompiledPlan is the immutable runtime projection cached in the hot-path snapshot.
 type CompiledPlan struct {
 	Version  Version
@@ -171,9 +176,10 @@ func (s *Service) refreshLocked(ctx context.Context) error {
 	return nil
 }
 
-// EnsureDefaultGlobal seeds one active global execution plan when none exists.
+// EnsureDefaultGlobal seeds or reconciles the managed active global execution plan.
 func (s *Service) EnsureDefaultGlobal(ctx context.Context, input CreateInput) error {
-	normalized, _, _, err := normalizeCreateInput(input)
+	input.Managed = true
+	normalized, _, planHash, err := normalizeCreateInput(input)
 	if err != nil {
 		return err
 	}
@@ -181,26 +187,31 @@ func (s *Service) EnsureDefaultGlobal(ctx context.Context, input CreateInput) er
 		return newValidationError("default execution plan must use global scope", nil)
 	}
 
-	versions, err := s.store.ListActive(ctx)
-	if err != nil {
-		return fmt.Errorf("list active execution plans: %w", err)
-	}
-	for _, version := range versions {
-		scope, _, err := normalizeScope(version.Scope)
-		if err != nil {
-			return fmt.Errorf("load execution plan %q: %w", version.ID, err)
-		}
-		if scope.Provider == "" && scope.Model == "" && scope.UserPath == "" {
-			return nil
-		}
-	}
-
 	if !normalized.Activate {
 		normalized.Activate = true
 	}
-	if _, err := s.store.Create(ctx, normalized); err != nil {
-		return fmt.Errorf("seed default global execution plan: %w", err)
+	normalized.Managed = true
+	previewCompiled, err := s.validateCreateCandidate(normalized, "global", planHash)
+	if err != nil {
+		return err
 	}
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
+	version, err := s.store.EnsureManagedDefaultGlobal(ctx, normalized, planHash)
+	if err != nil {
+		return fmt.Errorf("ensure default global execution plan: %w", err)
+	}
+	if version == nil {
+		if s.snapshot().global == nil {
+			if err := s.refreshLocked(ctx); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	s.storeActivatedCompiledLocked(compiledPlanForVersion(previewCompiled, *version))
 	return nil
 }
 

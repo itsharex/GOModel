@@ -29,6 +29,7 @@ test('sidebar and main content share the flex layout without manual content offs
 
     assert.match(template, /<aside class="sidebar"[\s\S]*<div class="sidebar-toggle"[\s\S]*<main class="content"/);
     assert.doesNotMatch(template, /content-collapsed/);
+    assert.match(template, /href="\/admin\/dashboard\/guardrails"[\s\S]*x-show="guardrailsPageVisible\(\)"[\s\S]*<span>Guardrails<\/span>[\s\S]*href="\/admin\/dashboard\/auth-keys"[\s\S]*<span>API Keys<\/span>/);
 
     const sidebarRule = readCSSRule(css, '.sidebar');
     assert.match(sidebarRule, /flex:\s*0 0 var\(--sidebar-width\)/);
@@ -72,7 +73,7 @@ test('dashboard layout pins Chart.js to 4.5.0', () => {
     );
     assert.match(
         template,
-        /<script src="\/admin\/static\/js\/modules\/conversation-helpers\.js"><\/script>[\s\S]*<script src="\/admin\/static\/js\/modules\/clipboard\.js"><\/script>[\s\S]*<script src="\/admin\/static\/js\/modules\/audit-list\.js"><\/script>[\s\S]*<script src="\/admin\/static\/js\/modules\/auth-keys\.js"><\/script>/
+        /<script src="\/admin\/static\/js\/modules\/conversation-helpers\.js"><\/script>[\s\S]*<script src="\/admin\/static\/js\/modules\/clipboard\.js"><\/script>[\s\S]*<script src="\/admin\/static\/js\/modules\/audit-list\.js"><\/script>[\s\S]*<script src="\/admin\/static\/js\/modules\/auth-keys\.js"><\/script>[\s\S]*<script src="\/admin\/static\/js\/modules\/guardrails\.js"><\/script>/
     );
 });
 
@@ -86,7 +87,8 @@ test('dashboard pages reuse a shared auth banner template', () => {
     );
 
     const authBannerCalls = indexTemplate.match(/{{template "auth-banner" \.}}/g) || [];
-    assert.equal(authBannerCalls.length, 6);
+    assert.equal(authBannerCalls.length, 7);
+    assert.match(indexTemplate, /<div x-show="page==='guardrails'">[\s\S]*{{template "auth-banner" \.}}/);
     assert.doesNotMatch(
         indexTemplate,
         /<div class="alert alert-warning" x-show="authError">[\s\S]*Authentication required\. Enter your API key in the sidebar to view data\.[\s\S]*<\/div>/
@@ -104,6 +106,15 @@ test('auth key expirations render as a UTC date with the full UTC timestamp in t
     assert.match(indexTemplate, /:disabled="authKeyFormSubmitting"/);
     assert.match(indexTemplate, /@click="if \(!authKeyFormSubmitting\) openAuthKeyForm\(\)"/);
     assert.match(indexTemplate, /x-show="authKeys\.length === 0 && !authKeysLoading && !authError && !authKeyError && authKeysAvailable"/);
+});
+
+test('workflow guardrail warning links directly to the top-level guardrails page', () => {
+    const indexTemplate = readFixture('../../../templates/index.html');
+
+    assert.match(indexTemplate, /No named guardrails are currently registered on this deployment\./);
+    assert.match(indexTemplate, /class="alert alert-warning alert-inline-actions" x-show="guardrailRefs\.length === 0"/);
+    assert.match(indexTemplate, /@click="navigate\('guardrails'\)">Open Guardrails<\/button>/);
+    assert.match(indexTemplate, /id="guardrail-filter"[^>]*aria-label="Guardrail filter"[^>]*x-model="guardrailFilter"/);
 });
 
 test('usage and audit pages reuse a shared pagination template', () => {

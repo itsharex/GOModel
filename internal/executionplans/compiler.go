@@ -1,25 +1,26 @@
 package executionplans
 
 import (
-	"fmt"
+	"errors"
+	"net/http"
 
 	"gomodel/internal/core"
 	"gomodel/internal/guardrails"
 )
 
 type compiler struct {
-	registry    *guardrails.Registry
+	registry    guardrails.Catalog
 	featureCaps core.ExecutionFeatures
 }
 
 // NewCompiler creates the default execution-plan compiler for the v1 payload.
-func NewCompiler(registry *guardrails.Registry) Compiler {
+func NewCompiler(registry guardrails.Catalog) Compiler {
 	return NewCompilerWithFeatureCaps(registry, core.DefaultExecutionFeatures())
 }
 
 // NewCompilerWithFeatureCaps creates the default execution-plan compiler for the
 // v1 payload with process-level feature caps applied at compile time.
-func NewCompilerWithFeatureCaps(registry *guardrails.Registry, featureCaps core.ExecutionFeatures) Compiler {
+func NewCompilerWithFeatureCaps(registry guardrails.Catalog, featureCaps core.ExecutionFeatures) Compiler {
 	return &compiler{
 		registry:    registry,
 		featureCaps: featureCaps,
@@ -69,7 +70,17 @@ func (c *compiler) compileGuardrails(steps []guardrails.StepReference) (*guardra
 		return nil, "", nil
 	}
 	if c == nil || c.registry == nil {
-		return nil, "", fmt.Errorf("guardrails are enabled but no guardrail registry is configured")
+		return nil, "", core.NewProviderError("", http.StatusBadGateway, "guardrails are enabled but no guardrail registry is configured", nil)
 	}
-	return c.registry.BuildPipeline(steps)
+	if c.registry.Len() == 0 {
+		return nil, "", core.NewProviderError("", http.StatusBadGateway, "guardrails are enabled but no guardrails are loaded", nil)
+	}
+	pipeline, hash, err := c.registry.BuildPipeline(steps)
+	if err == nil {
+		return pipeline, hash, nil
+	}
+	if gatewayErr, ok := errors.AsType[*core.GatewayError](err); ok {
+		return nil, "", gatewayErr
+	}
+	return nil, "", core.NewProviderError("", http.StatusBadGateway, "compile guardrails: "+err.Error(), err)
 }

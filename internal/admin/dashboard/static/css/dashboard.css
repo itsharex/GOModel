@@ -792,6 +792,14 @@ body {
     color: var(--success);
 }
 
+.alert-inline-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
 /* Table */
 .table-toolbar {
     display: flex;
@@ -2343,6 +2351,166 @@ body.conversation-drawer-open {
     width: 100%;
 }
 
+.page-subtitle {
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.settings-subnav {
+    display: inline-flex;
+    gap: 8px;
+    padding: 6px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+}
+
+.settings-subnav-btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 14px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.settings-subnav-btn:hover {
+    color: var(--text);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.settings-subnav-btn.active {
+    color: var(--text);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent-hover) 16%, transparent));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, var(--border));
+}
+
+.settings-guardrails-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 24px;
+    margin-bottom: 20px;
+    border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
+    border-radius: var(--radius);
+    background:
+        radial-gradient(circle at top right, color-mix(in srgb, var(--accent-hover) 18%, transparent), transparent 42%),
+        radial-gradient(circle at bottom left, color-mix(in srgb, var(--accent) 16%, transparent), transparent 40%),
+        var(--bg-surface);
+}
+
+.settings-kicker {
+    margin: 0 0 10px;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-guardrails-hero h3 {
+    margin-bottom: 8px;
+}
+
+.settings-guardrails-hero p:last-child {
+    margin-bottom: 0;
+    color: var(--text-muted);
+}
+
+.settings-guardrails-meta {
+    display: flex;
+    gap: 12px;
+}
+
+.settings-guardrails-stat {
+    min-width: 110px;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--accent) 14%, var(--border));
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg-surface-hover) 76%, transparent);
+}
+
+.settings-guardrails-stat-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.settings-guardrails-stat strong {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.settings-guardrails-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.settings-guardrails-layout.is-editor-open {
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+}
+
+.settings-guardrails-list,
+.settings-guardrails-editor {
+    min-width: 0;
+}
+
+.settings-guardrail-type-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.settings-guardrail-summary {
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.settings-guardrail-description {
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.settings-guardrail-textarea {
+    min-height: 150px;
+    width: 100%;
+    resize: vertical;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    line-height: 1.55;
+}
+
+.settings-guardrail-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar { width: 60px; flex-basis: 60px; }
@@ -2374,6 +2542,31 @@ body.conversation-drawer-open {
 
     .settings-panel-title-row {
         gap: 8px;
+    }
+
+    .settings-subnav {
+        display: flex;
+        width: 100%;
+    }
+
+    .settings-subnav-btn {
+        flex: 1 1 0;
+    }
+
+    .settings-guardrails-hero {
+        flex-direction: column;
+    }
+
+    .settings-guardrails-meta {
+        width: 100%;
+    }
+
+    .settings-guardrails-stat {
+        flex: 1 1 0;
+    }
+
+    .settings-guardrails-layout {
+        grid-template-columns: 1fr;
     }
 
     /* Category tabs mobile */
@@ -2581,43 +2774,18 @@ body.conversation-drawer-open {
     display: flex;
     align-items: center;
     width: 100%;
-}
-
-/* Left/right halves — equal width keeps AI centered */
-.ep-left,
-.ep-right {
-    display: flex;
-    align-items: center;
-    flex: 1;
     min-width: 0;
-}
-
-.ep-right {
-    justify-content: flex-end;
-}
-
-/* Optional step wrapper (connector + node shown/hidden together) */
-.ep-step {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
 }
 
 /* ─── Connectors ─── */
 
 .ep-conn {
-    flex-shrink: 0;
+    flex: 1 1 0;
+    min-width: 13px;
     position: relative;
-    width: 32px;
+    width: auto;
     height: 2px;
     background: color-mix(in srgb, var(--accent) 44%, var(--border));
-}
-
-/* Growing connector — fills remaining half to keep AI centered */
-.ep-conn-grow {
-    flex: 1;
-    min-width: 16px;
-    width: auto;
 }
 
 .ep-conn::after {
@@ -2658,8 +2826,8 @@ body.conversation-drawer-open {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    padding: 10px 14px;
+    gap: 4px;
+    padding: 8px 12px;
     border-radius: var(--radius);
     border: 1px solid var(--border);
     background: var(--bg-surface);
@@ -2759,96 +2927,82 @@ body.conversation-drawer-open {
     color: var(--text-muted);
 }
 
-.ep-node-endpoint-success {
-    border-color: color-mix(in srgb, var(--success) 52%, var(--border));
-    background: color-mix(in srgb, var(--success) 9%, var(--bg-surface));
-}
+/* ─── Shared node variants ─── */
 
-.ep-node-endpoint-success .ep-node-icon-endpoint {
-    color: var(--success);
-}
-
-.ep-node-endpoint-success .ep-node-label {
-    color: color-mix(in srgb, var(--success) 85%, var(--text));
-}
-
-/* ─── Guardrails node ─── */
-
-.ep-node-guardrails {
+.ep-node-feature {
     border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
     background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
 }
 
-.ep-node-guardrails .ep-node-icon {
+.ep-node-feature .ep-node-icon {
     background: color-mix(in srgb, var(--accent) 16%, var(--bg));
     color: var(--accent);
 }
 
-.ep-node-guardrails .ep-node-label {
+.ep-node-feature .ep-node-label {
     color: var(--accent);
 }
 
-.ep-node-guardrails .ep-node-sub {
+.ep-node-feature .ep-node-sub {
     color: color-mix(in srgb, var(--accent) 70%, var(--text-muted));
 }
 
+.ep-node-success {
+    border-color: color-mix(in srgb, var(--success) 52%, var(--border));
+    background: color-mix(in srgb, var(--success) 9%, var(--bg-surface));
+}
+
+.ep-node-success .ep-node-icon {
+    background: color-mix(in srgb, var(--success) 18%, var(--bg));
+    color: var(--success);
+}
+
+.ep-node-success .ep-node-icon-endpoint {
+    color: var(--success);
+}
+
+.ep-node-success .ep-node-label {
+    color: color-mix(in srgb, var(--success) 85%, var(--text));
+}
+
+.ep-node-success .ep-node-sub {
+    color: color-mix(in srgb, var(--success) 74%, var(--text-muted));
+}
+
+.ep-node-success .ep-node-badge {
+    background: color-mix(in srgb, var(--success) 14%, var(--bg));
+    border-color: color-mix(in srgb, var(--success) 38%, var(--border));
+    color: var(--success);
+}
+
+.ep-node-error {
+    border-color: color-mix(in srgb, var(--danger) 52%, var(--border));
+    background: color-mix(in srgb, var(--danger) 9%, var(--bg-surface));
+}
+
+.ep-node-error .ep-node-icon {
+    background: color-mix(in srgb, var(--danger) 14%, var(--bg));
+    color: var(--danger);
+}
+
+.ep-node-error .ep-node-icon-endpoint {
+    color: var(--danger);
+}
+
+.ep-node-error .ep-node-label {
+    color: color-mix(in srgb, var(--danger) 85%, var(--text));
+}
+
+.ep-node-error .ep-node-sub {
+    color: color-mix(in srgb, var(--danger) 72%, var(--text-muted));
+}
+
+.ep-node-skipped {
+    position: relative;
+    opacity: 0.28;
+}
+
 /* ─── Cache node ─── */
-
-.ep-node-cache {
-    border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
-}
-
-.ep-node-cache .ep-node-icon {
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg));
-    color: var(--accent);
-}
-
-.ep-node-cache .ep-node-label {
-    color: var(--accent);
-}
-
-/* Cache — runtime: exact hit */
-.ep-node-cache-hit {
-    border-color: color-mix(in srgb, var(--success) 52%, var(--border));
-    background: color-mix(in srgb, var(--success) 9%, var(--bg-surface));
-}
-
-.ep-node-cache-hit .ep-node-icon {
-    background: color-mix(in srgb, var(--success) 18%, var(--bg));
-    color: var(--success);
-}
-
-.ep-node-cache-hit .ep-node-label {
-    color: color-mix(in srgb, var(--success) 85%, var(--text));
-}
-
-.ep-node-cache-hit .ep-node-badge {
-    background: color-mix(in srgb, var(--success) 14%, var(--bg));
-    border-color: color-mix(in srgb, var(--success) 38%, var(--border));
-    color: var(--success);
-}
-
-/* Cache — runtime: semantic hit */
-.ep-node-cache-semantic {
-    border-color: color-mix(in srgb, var(--success) 52%, var(--border));
-    background: color-mix(in srgb, var(--success) 9%, var(--bg-surface));
-}
-
-.ep-node-cache-semantic .ep-node-icon {
-    background: color-mix(in srgb, var(--success) 18%, var(--bg));
-    color: var(--success);
-}
-
-.ep-node-cache-semantic .ep-node-label {
-    color: color-mix(in srgb, var(--success) 85%, var(--text));
-}
-
-.ep-node-cache-semantic .ep-node-badge {
-    background: color-mix(in srgb, var(--success) 14%, var(--bg));
-    border-color: color-mix(in srgb, var(--success) 38%, var(--border));
-    color: var(--success);
-}
 
 /* Cache — runtime: miss badge only */
 .ep-node-cache-miss .ep-node-badge {
@@ -2858,56 +3012,6 @@ body.conversation-drawer-open {
 
 /* ─── Auth node ─── */
 
-.ep-node-auth {
-    border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
-}
-
-.ep-node-auth .ep-node-icon {
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg));
-    color: var(--accent);
-}
-
-.ep-node-auth .ep-node-label {
-    color: var(--accent);
-}
-
-.ep-node-auth .ep-node-sub {
-    color: color-mix(in srgb, var(--accent) 70%, var(--text-muted));
-}
-
-.ep-node-auth-success {
-    border-color: color-mix(in srgb, var(--success) 52%, var(--border));
-    background: color-mix(in srgb, var(--success) 9%, var(--bg-surface));
-}
-
-.ep-node-auth-success .ep-node-icon {
-    background: color-mix(in srgb, var(--success) 18%, var(--bg));
-    color: var(--success);
-}
-
-.ep-node-auth-success .ep-node-label {
-    color: color-mix(in srgb, var(--success) 85%, var(--text));
-}
-
-.ep-node-auth-success .ep-node-sub {
-    color: color-mix(in srgb, var(--success) 70%, var(--text-muted));
-}
-
-.ep-node-auth-error {
-    border-color: color-mix(in srgb, var(--danger) 52%, var(--border));
-    background: color-mix(in srgb, var(--danger) 9%, var(--bg-surface));
-}
-
-.ep-node-auth-error .ep-node-icon {
-    background: color-mix(in srgb, var(--danger) 14%, var(--bg));
-    color: var(--danger);
-}
-
-.ep-node-auth-error .ep-node-label {
-    color: color-mix(in srgb, var(--danger) 85%, var(--text));
-}
-
 /* ─── AI node ─── */
 
 .ep-node-ai {
@@ -2915,25 +3019,6 @@ body.conversation-drawer-open {
     padding: 12px 16px;
     border-radius: var(--radius);
     gap: 6px;
-}
-
-.ep-node-ai-success {
-    border-color: color-mix(in srgb, var(--success) 52%, var(--border));
-    background: color-mix(in srgb, var(--success) 9%, var(--bg-surface));
-}
-
-.ep-node-ai-success .ep-node-label {
-    color: color-mix(in srgb, var(--success) 85%, var(--text));
-}
-
-.ep-node-ai-success .ep-node-sub {
-    color: color-mix(in srgb, var(--success) 78%, var(--text-muted));
-}
-
-/* AI skipped — cache hit absorbed the request */
-.ep-node-ai-skipped {
-    position: relative;
-    opacity: 0.28;
 }
 
 /* ─── Async section ─── */
@@ -3008,6 +3093,7 @@ body.conversation-drawer-open {
 
 /* Dashed left-pointing connector between async nodes */
 .ep-conn-async {
+    flex: 0 0 24px;
     background: repeating-linear-gradient(
         to left,
         color-mix(in srgb, var(--text-muted) 45%, var(--border)) 0,
@@ -3016,7 +3102,6 @@ body.conversation-drawer-open {
         transparent 9px
     );
     width: 24px;
-    flex-shrink: 0;
 }
 
 /* Left-pointing arrowhead (overrides ep-conn::after right-pointing default) */
@@ -3053,32 +3138,12 @@ body.conversation-drawer-open {
     font-weight: 700;
 }
 
-.ep-node-async-audit {
-    border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
-}
-
-.ep-node-async-audit .ep-node-icon {
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg));
-    color: var(--accent);
-}
-
-.ep-node-async-audit .ep-node-label {
-    color: var(--accent);
-}
-
 .ep-node-async-usage {
-    border-color: color-mix(in srgb, var(--accent) 46%, var(--border));
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
+    --accent: var(--success);
 }
 
-.ep-node-async-usage .ep-node-icon {
-    background: color-mix(in srgb, var(--accent) 16%, var(--bg));
-    color: var(--accent);
-}
-
-.ep-node-async-usage .ep-node-label {
-    color: var(--accent);
+.ep-node-async-audit {
+    --accent: var(--warning);
 }
 
 /* "ASYNC" label inline on the right of the branch */
