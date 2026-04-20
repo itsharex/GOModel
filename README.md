@@ -109,7 +109,7 @@ upstream `/models` endpoint is unavailable.
 
 ### Docker Compose
 
-**Infrastructure only** (Redis, PostgreSQL, MongoDB, Adminer — no image build):
+**Infrastructure only** (Redis, PostgreSQL, MongoDB, Adminer - no image build):
 
 ```bash
 docker compose up -d
@@ -180,17 +180,17 @@ GoModel is configured through environment variables and an optional `config.yaml
 
 Key settings:
 
-| Variable                        | Default            | Description                                                                      |
-| ------------------------------- | ------------------ | -------------------------------------------------------------------------------- |
-| `PORT`                          | `8080`             | Server port                                                                      |
-| `GOMODEL_MASTER_KEY`            | (none)             | API key for authentication                                                       |
-| `ENABLE_PASSTHROUGH_ROUTES`     | `true`             | Enable provider-native passthrough routes under `/p/{provider}/...`              |
-| `ALLOW_PASSTHROUGH_V1_ALIAS`    | `true`             | Allow `/p/{provider}/v1/...` aliases while keeping `/p/{provider}/...` canonical |
+| Variable                        | Default                           | Description                                                                      |
+| ------------------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
+| `PORT`                          | `8080`                            | Server port                                                                      |
+| `GOMODEL_MASTER_KEY`            | (none)                            | API key for authentication                                                       |
+| `ENABLE_PASSTHROUGH_ROUTES`     | `true`                            | Enable provider-native passthrough routes under `/p/{provider}/...`              |
+| `ALLOW_PASSTHROUGH_V1_ALIAS`    | `true`                            | Allow `/p/{provider}/v1/...` aliases while keeping `/p/{provider}/...` canonical |
 | `ENABLED_PASSTHROUGH_PROVIDERS` | `openai,anthropic,openrouter,zai` | Comma-separated list of enabled passthrough providers                            |
-| `STORAGE_TYPE`                  | `sqlite`           | Storage backend (`sqlite`, `postgresql`, `mongodb`)                              |
-| `METRICS_ENABLED`               | `false`            | Enable Prometheus metrics                                                        |
-| `LOGGING_ENABLED`               | `false`            | Enable audit logging                                                             |
-| `GUARDRAILS_ENABLED`            | `false`            | Enable the configured guardrails pipeline                                        |
+| `STORAGE_TYPE`                  | `sqlite`                          | Storage backend (`sqlite`, `postgresql`, `mongodb`)                              |
+| `METRICS_ENABLED`               | `false`                           | Enable Prometheus metrics                                                        |
+| `LOGGING_ENABLED`               | `false`                           | Enable audit logging                                                             |
+| `GUARDRAILS_ENABLED`            | `false`                           | Enable the configured guardrails pipeline                                        |
 
 **Quick Start - Authentication:** By default `GOMODEL_MASTER_KEY` is unset. Without this key, API endpoints are unprotected and anyone can call them. This is insecure for production. **Strongly recommend** setting a strong secret before exposing the service. Add `GOMODEL_MASTER_KEY` to your `.env` or environment for production deployments.
 
@@ -200,27 +200,15 @@ Key settings:
 
 GoModel has a two-layer response cache that reduces LLM API costs and latency for repeated or semantically similar requests.
 
-### Layer 1 — Exact-match cache
+### Layer 1 - Exact-match cache
 
-Hashes the full request body (path + `Workflow` + body) and returns a stored response on byte-identical requests. Sub-millisecond lookup. Activate by pointing it at Redis:
-
-```yaml
-# config/config.yaml
-cache:
-  response:
-    simple:
-      redis:
-        url: redis://localhost:6379
-        ttl: 3600 # seconds; default 3600
-```
-
-Or via environment variables: `REDIS_URL`, `REDIS_KEY_RESPONSES`, `REDIS_TTL_RESPONSES`.
+Hashes the full request body (path + `Workflow` + body) and returns a stored response on byte-identical requests. Sub-millisecond lookup. Activate by environment variables: `RESPONSE_CACHE_SIMPLE_ENABLED` and `REDIS_URL`.
 
 Responses served from this layer carry `X-Cache: HIT (exact)`.
 
-### Layer 2 — Semantic cache
+### Layer 2 - Semantic cache
 
-Embeds the last user message via your configured provider’s OpenAI-compatible `/v1/embeddings` API (`cache.response.semantic.embedder.provider` must name a key in the top-level `providers` map) and performs a KNN vector search. Semantically equivalent queries — e.g. _"What's the capital of France?"_ vs _"Which city is France's capital?"_ — can return the same cached response without an upstream LLM call.
+Embeds the last user message via your configured provider’s OpenAI-compatible `/v1/embeddings` API (`cache.response.semantic.embedder.provider` must name a key in the top-level `providers` map) and performs a KNN vector search. Semantically equivalent queries - e.g. _"What's the capital of France?"_ vs _"Which city is France's capital?"_ - can return the same cached response without an upstream LLM call.
 
 Expected hit rates: ~60–70% in high-repetition workloads vs. ~18% for exact-match alone.
 

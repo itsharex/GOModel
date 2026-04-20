@@ -26,16 +26,16 @@ YAML providers: section
 
 The loader checks these two paths in order; the first file found wins:
 
-1. `config/config.yaml` (recommended — keeps config separate from the working directory)
+1. `config/config.yaml` (recommended - keeps config separate from the working directory)
 2. `config.yaml` (working directory root)
 
-If neither file exists, that is not an error — only code defaults and env vars apply.
+If neither file exists, that is not an error - only code defaults and env vars apply.
 
 ---
 
 ## Scenarios
 
-### Scenario 1 — env-only, no YAML (simplest deployment)
+### Scenario 1 - env-only, no YAML (simplest deployment)
 
 No `config/config.yaml` exists. All provider credentials come from environment variables. Everything else runs on code defaults.
 
@@ -46,13 +46,13 @@ GOMODEL_MASTER_KEY=super-secret
 
 OPENAI_API_KEY=sk-proj-...
 ANTHROPIC_API_KEY=sk-ant-...
-# Ollama uses http://localhost:11434/v1 by default — only set this if yours is elsewhere
+# Ollama uses http://localhost:11434/v1 by default - only set this if yours is elsewhere
 # OLLAMA_BASE_URL=http://custom-ollama:11434/v1
 ```
 
 **What happens step by step:**
 
-1. No YAML file is found — provider list starts empty.
+1. No YAML file is found - provider list starts empty.
 2. `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are discovered and turned into provider entries.
 3. Both pass credential filtering; Ollama is also included unconditionally (it needs no API key).
 4. All providers receive the built-in default resilience settings.
@@ -74,7 +74,7 @@ circuit_breaker:
 
 ---
 
-### Scenario 2 — YAML with providers block and per-provider resilience tuning
+### Scenario 2 - YAML with providers block and per-provider resilience tuning
 
 You want tighter retry limits globally and a more aggressive circuit breaker for a specific noisy provider.
 
@@ -102,13 +102,13 @@ providers:
     api_key: ${ANTHROPIC_API_KEY}
     resilience:
       retry:
-        max_retries: 5 # Anthropic supports long requests — allow more retries
+        max_retries: 5 # Anthropic supports long requests - allow more retries
   ollama:
     type: ollama
     base_url: ${OLLAMA_BASE_URL:-http://localhost:11434/v1}
     resilience:
       circuit_breaker:
-        failure_threshold: 10 # local service — tolerate more transient failures
+        failure_threshold: 10 # local service - tolerate more transient failures
         timeout: 5s
 ```
 
@@ -124,7 +124,7 @@ Only fields that are explicitly listed under a provider's `resilience:` block ar
 
 ---
 
-### Scenario 3 — YAML for resilience only, providers from env
+### Scenario 3 - YAML for resilience only, providers from env
 
 You want resilience settings in version-controlled config but do not want credentials committed to the repository.
 
@@ -151,7 +151,7 @@ GROQ_API_KEY=gsk_...
 **What happens:**
 
 1. YAML sets `max_retries: 4` and `initial_backoff: 2s`. The other retry fields (`max_backoff`, `backoff_factor`, `jitter_factor`) are not listed, so they keep the code defaults.
-2. The `providers:` key is absent from the YAML — provider list starts empty.
+2. The `providers:` key is absent from the YAML - provider list starts empty.
 3. `OPENAI_API_KEY` and `GROQ_API_KEY` are discovered from the environment and turned into provider entries.
 4. Both providers inherit the YAML-sourced global resilience config; there are no per-provider overrides.
 
@@ -176,31 +176,31 @@ All resilience settings can be overridden at runtime via env vars. Env vars alwa
 
 Provider credentials:
 
-| Variable              | Provider                                                                       |
-| --------------------- | ------------------------------------------------------------------------------ |
-| `OPENAI_API_KEY`      | OpenAI                                                                         |
-| `OPENAI_BASE_URL`     | OpenAI (custom endpoint)                                                       |
-| `ANTHROPIC_API_KEY`   | Anthropic                                                                      |
-| `ANTHROPIC_BASE_URL`  | Anthropic (custom endpoint)                                                    |
-| `GEMINI_API_KEY`      | Google Gemini                                                                  |
-| `GEMINI_BASE_URL`     | Gemini (custom endpoint)                                                       |
-| `OPENROUTER_API_KEY`  | OpenRouter (default base URL: `https://openrouter.ai/api/v1`)                  |
-| `OPENROUTER_BASE_URL` | OpenRouter (custom endpoint override)                                          |
-| `OPENROUTER_SITE_URL` | OpenRouter attribution URL override (default: `https://gomodel.enterpilot.io`) |
-| `OPENROUTER_APP_NAME` | OpenRouter attribution title override (default: `GoModel`)                     |
-| `ZAI_API_KEY`         | Z.ai (default base URL: `https://api.z.ai/api/paas/v4`)                        |
-| `ZAI_BASE_URL`        | Z.ai (custom endpoint, including GLM Coding Plan)                              |
-| `XAI_API_KEY`         | xAI / Grok                                                                     |
-| `XAI_BASE_URL`        | xAI (custom endpoint)                                                          |
-| `GROQ_API_KEY`        | Groq                                                                           |
-| `GROQ_BASE_URL`       | Groq (custom endpoint)                                                         |
-| `AZURE_API_KEY`       | Azure OpenAI                                                                   |
-| `AZURE_BASE_URL`      | Azure OpenAI deployment base URL                                               |
-| `AZURE_API_VERSION`   | Azure OpenAI API version override (default: `2024-10-21`)                      |
-| `ORACLE_API_KEY`      | Oracle                                                                         |
-| `ORACLE_BASE_URL`     | Oracle OpenAI-compatible base URL                                              |
+| Variable              | Provider                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| `OPENAI_API_KEY`      | OpenAI                                                                                |
+| `OPENAI_BASE_URL`     | OpenAI (custom endpoint)                                                              |
+| `ANTHROPIC_API_KEY`   | Anthropic                                                                             |
+| `ANTHROPIC_BASE_URL`  | Anthropic (custom endpoint)                                                           |
+| `GEMINI_API_KEY`      | Google Gemini                                                                         |
+| `GEMINI_BASE_URL`     | Gemini (custom endpoint)                                                              |
+| `OPENROUTER_API_KEY`  | OpenRouter (default base URL: `https://openrouter.ai/api/v1`)                         |
+| `OPENROUTER_BASE_URL` | OpenRouter (custom endpoint override)                                                 |
+| `OPENROUTER_SITE_URL` | OpenRouter attribution URL override (default: `https://gomodel.enterpilot.io`)        |
+| `OPENROUTER_APP_NAME` | OpenRouter attribution title override (default: `GoModel`)                            |
+| `ZAI_API_KEY`         | Z.ai (default base URL: `https://api.z.ai/api/paas/v4`)                               |
+| `ZAI_BASE_URL`        | Z.ai (custom endpoint, including GLM Coding Plan)                                     |
+| `XAI_API_KEY`         | xAI / Grok                                                                            |
+| `XAI_BASE_URL`        | xAI (custom endpoint)                                                                 |
+| `GROQ_API_KEY`        | Groq                                                                                  |
+| `GROQ_BASE_URL`       | Groq (custom endpoint)                                                                |
+| `AZURE_API_KEY`       | Azure OpenAI                                                                          |
+| `AZURE_BASE_URL`      | Azure OpenAI deployment base URL                                                      |
+| `AZURE_API_VERSION`   | Azure OpenAI API version override (default: `2024-10-21`)                             |
+| `ORACLE_API_KEY`      | Oracle                                                                                |
+| `ORACLE_BASE_URL`     | Oracle OpenAI-compatible base URL                                                     |
 | `ORACLE_MODELS`       | Oracle fallback model inventory (comma-separated, used when `/models` is unavailable) |
-| `OLLAMA_BASE_URL`     | Ollama (default: `http://localhost:11434/v1`)                                  |
+| `OLLAMA_BASE_URL`     | Ollama (default: `http://localhost:11434/v1`)                                         |
 
 See `.env.template` for the full list of all configurable environment variables.
 
@@ -240,7 +240,7 @@ When the `openrouter` provider is used, the gateway adds `HTTP-Referer` and `X-O
 YAML is unmarshalled onto the struct that was already populated by built-in defaults. Only fields that appear in the file are written. Omitting `max_backoff` from `resilience.retry` leaves it at `30s`; you do not need to repeat defaults you are happy with.
 
 **Two YAML search paths, first wins.**
-`config/config.yaml` is checked before `config.yaml` in the working directory. They are not merged — whichever is found first is the only one used.
+`config/config.yaml` is checked before `config.yaml` in the working directory. They are not merged - whichever is found first is the only one used.
 
 ---
 
@@ -599,7 +599,7 @@ const client = new OpenAI({
   apiKey: "not-needed",
 });
 
-// Use any supported model — routing is automatic
+// Use any supported model - routing is automatic
 const response = await client.chat.completions.create({
   model: "gemini-2.0-flash",
   messages: [{ role: "user", content: "Hello!" }],
@@ -667,7 +667,7 @@ console.log(embedding.data[0].embedding.slice(0, 5)); // first 5 dimensions
 
 ## Tips
 
-1. **Model routing**: The gateway automatically routes requests to the correct provider based on the model name — no configuration needed. Just use any model name from the list above.
+1. **Model routing**: The gateway automatically routes requests to the correct provider based on the model name - no configuration needed. Just use any model name from the list above.
 2. **API compatibility**: The gateway exposes an OpenAI-compatible API. Existing OpenAI client libraries work unchanged for all providers.
 3. **Streaming**: All providers support streaming. SSE chunks are flushed incrementally, and streaming responses terminate with `data: [DONE]`.
 4. **System messages**: Anthropic's system message format is handled automatically. Gemini uses Google's OpenAI-compatible endpoint, which also handles system messages natively.
