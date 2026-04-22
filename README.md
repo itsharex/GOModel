@@ -47,6 +47,7 @@ docker run --rm -p 8080:8080 \
   -e ORACLE_BASE_URL="https://inference.generativeai.us-chicago-1.oci.oraclecloud.com/20231130/actions/v1" \
   -e ORACLE_MODELS="openai.gpt-oss-120b,xai.grok-3" \
   -e OLLAMA_BASE_URL="http://host.docker.internal:11434/v1" \
+  -e VLLM_BASE_URL="http://host.docker.internal:8000/v1" \
   enterpilot/gomodel
 ```
 
@@ -81,12 +82,15 @@ Example model identifiers are illustrative and subject to change; consult provid
 | Azure OpenAI  | `AZURE_API_KEY` + `AZURE_BASE_URL` (`AZURE_API_VERSION` optional) | `gpt-4o`                   |  ✅  |      ✅      |  ✅   |  ✅   |   ✅    |    ✅    |
 | Oracle        | `ORACLE_API_KEY` + `ORACLE_BASE_URL`                              | `openai.gpt-oss-120b`      |  ✅  |      ✅      |  ❌   |  ❌   |   ❌    |    ❌    |
 | Ollama        | `OLLAMA_BASE_URL`                                                 | `llama3.2`                 |  ✅  |      ✅      |  ✅   |  ❌   |   ❌    |    ❌    |
+| vLLM          | `VLLM_BASE_URL` (`VLLM_API_KEY` optional)                         | `meta-llama/Llama-3.1-8B-Instruct` | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
 
 ✅ Supported ❌ Unsupported
 
 For Z.ai's GLM Coding Plan, set `ZAI_BASE_URL=https://api.z.ai/api/coding/paas/v4`.
 For Oracle, set `ORACLE_MODELS=openai.gpt-oss-120b,xai.grok-3` when the
 upstream `/models` endpoint is unavailable.
+For vLLM, set `VLLM_API_KEY` only if the upstream server was started with
+`--api-key`.
 To register multiple instances of the same provider type without `config.yaml`,
 use suffixed env vars such as `OPENAI_EAST_API_KEY` and
 `OPENAI_EAST_BASE_URL`; this registers provider `openai-east` with type
@@ -193,7 +197,7 @@ Key settings:
 | `GOMODEL_MASTER_KEY`            | (none)                            | API key for authentication                                                       |
 | `ENABLE_PASSTHROUGH_ROUTES`     | `true`                            | Enable provider-native passthrough routes under `/p/{provider}/...`              |
 | `ALLOW_PASSTHROUGH_V1_ALIAS`    | `true`                            | Allow `/p/{provider}/v1/...` aliases while keeping `/p/{provider}/...` canonical |
-| `ENABLED_PASSTHROUGH_PROVIDERS` | `openai,anthropic,openrouter,zai` | Comma-separated list of enabled passthrough providers                            |
+| `ENABLED_PASSTHROUGH_PROVIDERS` | `openai,anthropic,openrouter,zai,vllm` | Comma-separated list of enabled passthrough providers                            |
 | `STORAGE_TYPE`                  | `sqlite`                          | Storage backend (`sqlite`, `postgresql`, `mongodb`)                              |
 | `METRICS_ENABLED`               | `false`                           | Enable Prometheus metrics                                                        |
 | `LOGGING_ENABLED`               | `false`                           | Enable audit logging                                                             |
