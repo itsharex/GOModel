@@ -24,8 +24,8 @@
   padding: 0.125rem;
   box-sizing: border-box;
   background-color: var(--discord-nav-light);
-  -webkit-mask-image: url("/discord.svg");
-  mask-image: url("/discord.svg");
+  -webkit-mask-image: url("/docs/discord.svg");
+  mask-image: url("/docs/discord.svg");
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
   -webkit-mask-position: center;
