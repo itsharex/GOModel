@@ -1,97 +1,104 @@
-# CLAUDE.md
+This project is GoModel - a high-performance, lightweight AI gateway that routes requests to multiple AI model providers through an OpenAI-compatible API.
 
-Guidance for AI models (like Claude) working with this codebase.
+## Core Principles
 
-## Project Overview
+### Follow Postel’s Law
 
-**GoModel** is a high-performance AI gateway in Go that routes requests to multiple AI model providers (OpenAI, Anthropic, Gemini, Groq, OpenRouter, Z.ai, xAI, MiniMax, Azure OpenAI, Oracle, Ollama). LiteLLM killer.
+Accept user requests generously, adapt them to each provider’s requirements, and return conservative OpenAI-compatible responses.
 
-**Go:** 1.26.2
-**Repo:** https://github.com/ENTERPILOT/GoModel
+Examples:
 
-- **Stage:** Development - backward compatibility is not a concern
-- **Design philosophy:**
+- Accept `max_tokens` from users even when a provider expects another field.
+- Translate `max_tokens` to `max_completion_tokens` for OpenAI reasoning models when required.
+- Normalize provider responses into an OpenAI-compatible shape.
 
-1. [Postel's Law](https://en.wikipedia.org/wiki/Robustness_principle) (the Robustness Principle)_"Be conservative in what you send, be liberal in what you accept."_
+### Follow The Twelve-Factor App
 
-- The gateway accepts client requests generously (e.g. `max_tokens` for any model) and adapts them to each provider's specific requirements before forwarding (e.g. translating `max_tokens` → `max_completion_tokens` for OpenAI reasoning models).
-- The gateway accepts provider's response liberally and pass it to the user in a conservative OpenAI-compatible shape.
+Prefer production-friendly service design:
 
-1. [The Twelve-Factor App](https://12factor.net/).
+- Configuration through environment variables.
+- Stateless request handling.
+- Clear separation between configuration, routing, provider adapters, and runtime behavior.
+- Useful logs for containers and cloud environments.
 
-## Commands
+Reference: https://12factor.net/
 
-```bash
-make run               # Run server (requires .env with API key)
-make build             # Build to bin/gomodel (with version injection)
-make test              # Unit tests only
-make test-e2e          # E2E tests (in-process mock, no Docker)
-make test-integration  # Integration tests (requires Docker, 10m timeout)
-make test-contract     # Contract replay tests (golden file validation)
-make test-all          # All tests (unit + e2e + integration + contract)
-make lint              # Run golangci-lint
-make lint-fix          # Auto-fix lint issues
-make tidy              # go mod tidy
-make clean             # Remove bin/
-make record-api        # Record API responses for contract tests
-make swagger           # Regenerate Swagger docs
-make infra             # Docker Compose: Redis, Postgres, MongoDB, Adminer only
-make image             # Docker Compose: full stack (GoModel + Prometheus)
+### Keep It Simple
+
+Keep files small.
+
+Prefer explicit, maintainable code over clever abstractions.
+
+Do not add abstractions until a repeated pattern clearly justifies them.
+
+### Use Good Defaults
+
+Defaults should fit most users so well that they rarely need to change them.
+
+When adding configuration:
+
+- Choose a safe, practical default.
+- Avoid requiring configuration for common use cases.
+- Document when and why users should override the default.
+
+## Implementation Guidance
+
+When changing provider behavior:
+
+- Preserve the OpenAI-compatible public API.
+- Keep provider-specific logic isolated.
+- Avoid leaking provider-specific quirks into user-facing behavior.
+- Never expose API keys, authorization headers, or secrets in errors or logs.
+
+When editing code:
+
+- Make the smallest change that solves the problem.
+- Use idiomatic Go.
+- Prefer clear names, small interfaces, simple structs, and table-driven tests.
+- Avoid hidden global state, unnecessary reflection, and premature optimization.
+- Add or update tests for behavior changes.
+
+Tests should cover request translation, response normalization, error handling, default configuration, and provider-specific parameter mapping.
+
+## Documentation
+
+Documentation should be concise, practical, and user-focused.
+
+Show defaults, explain when to change them, and include minimal examples when useful.
+
+## Commit and PR Format
+
+Use Conventional Commits for commit subjects and PR titles:
+
+```text
+type(scope): short summary
 ```
 
-**Single test:** `go test ./internal/providers -v -run TestName`
-**E2E single test:** `go test -v -tags=e2e ./tests/e2e/... -run TestName`
-**Integration single test:** `go test -v -tags=integration -timeout=10m ./tests/integration/... -run TestName`
-**Contract single test:** `go test -v -tags=contract -timeout=5m ./tests/contract/... -run TestName`
+Allowed types: `feat`, `fix`, `perf`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `revert`
 
-**Build tags:** E2E tests require `-tags=e2e`, integration tests require `-tags=integration`, contract tests require `-tags=contract`. The Makefile handles this automatically.
+Examples:
 
-## Commit And PR Title Format
-
-Use Conventional Commit format for commit subjects and PR titles:
-
-`type(scope): short summary`
-
-Allowed types: feat, fix, perf, docs, refactor, test, build, ci, chore, revert
-
-Prefer squash-and-merge to keep the merged commit subject aligned with the PR title.
-
-## Error Handling
-
-- All errors returned to clients must be instances of `core.GatewayError`.
-- Do not hide work in detached goroutines; respect context synchronously and return typed `core.GatewayError` values.
-- Use the typed client-facing categories `provider_error`, `rate_limit_error`, `invalid_request_error`, `authentication_error`, and `not_found_error`.
-- Public error responses must use the OpenAI-compatible shape:
-
-```json
-{
-  "error": {
-    "type": "provider_error",
-    "message": "human readable message",
-    "param": null,
-    "code": null
-  }
-}
+```text
+feat(openai): support reasoning model token mapping
+fix(router): preserve request headers during provider retry
+docs(config): document default provider timeout
 ```
 
-- If `param` or `code` metadata is available from validation or an upstream provider, it must be exposed in those fields; otherwise both fields must still be present with `null`.
-- Update this document whenever behavior, configuration, providers, supported commands, or public API contracts change.
+Squash merges should preserve the PR title as the resulting commit subject.
 
-## Testing
+## Pull Request Guidance
 
-- **Unit tests:** Alongside implementation files (`*_test.go`). No Docker.
-- **E2E tests:** Currently in-process mock LLM server, no Docker. Tag: `-tags=e2e`
-- **Integration tests:** Real databases via Docker-managed containers (Docker required). Tag: `-tags=integration`. Timeout: 10m.
-- **Contract tests:** Golden file validation against real API responses. Tag: `-tags=contract`. Record new golden files: `make record-api`
-- **Stress tests:** In `tests/stress/`
+Before opening a PR:
 
-Docker Compose is optional and intended solely for manual storage-backend validation; automated tests must run without Docker (except integration tests which start ephemeral database containers through the Docker CLI).
+- Ensure tests pass.
+- Keep the change focused.
+- Explain the user-visible impact.
+- Mention provider-specific behavior when relevant.
+- Update documentation for new configuration or API behavior.
 
-```bash
-# Manual storage testing with Docker Compose running
-STORAGE_TYPE=postgresql POSTGRES_URL=postgres://gomodel:gomodel@localhost:5432/gomodel go run ./cmd/gomodel
-STORAGE_TYPE=mongodb MONGODB_URL=mongodb://localhost:27017/gomodel go run ./cmd/gomodel
-```
+If this repository is not the official GoModel repository, ask the user whether they also want to create a PR against the official repository:
+
+[https://github.com/ENTERPILOT/GoModel/](https://github.com/ENTERPILOT/GoModel/)
 
 ## Configuration Reference
 

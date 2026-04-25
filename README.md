@@ -227,7 +227,7 @@ docker run --rm -p 8080:8080 --env-file .env gomodel
 | Endpoint              | Method | Description                       |
 | --------------------- | ------ | --------------------------------- |
 | `/health`             | GET    | Health check                      |
-| `/metrics`            | GET    | Prometheus metrics (when enabled) |
+| `/metrics`            | GET    | Prometheus metrics (experimental, when enabled) |
 | `/swagger/index.html` | GET    | Swagger UI (when enabled)         |
 
 ---
@@ -246,7 +246,7 @@ Key settings:
 | `ALLOW_PASSTHROUGH_V1_ALIAS`    | `true`                                 | Allow `/p/{provider}/v1/...` aliases while keeping `/p/{provider}/...` canonical |
 | `ENABLED_PASSTHROUGH_PROVIDERS` | `openai,anthropic,openrouter,zai,vllm` | Comma-separated list of enabled passthrough providers                            |
 | `STORAGE_TYPE`                  | `sqlite`                               | Storage backend (`sqlite`, `postgresql`, `mongodb`)                              |
-| `METRICS_ENABLED`               | `false`                                | Enable Prometheus metrics                                                        |
+| `METRICS_ENABLED`               | `false`                                | Enable Prometheus metrics (experimental)                                         |
 | `LOGGING_ENABLED`               | `false`                                | Enable audit logging                                                             |
 | `GUARDRAILS_ENABLED`            | `false`                                | Enable the configured guardrails pipeline                                        |
 
