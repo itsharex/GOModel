@@ -278,7 +278,7 @@ Both cache layers run **after** guardrail/workflow patching so they always see t
 
 ---
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for testing, linting, and pre-commit setup.
+See [DEVELOPMENT.md](docs/DEVELOPMENT.md) for testing, linting, and pre-commit setup.
 
 ---
 
