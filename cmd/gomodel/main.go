@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	_ "gomodel/cmd/gomodel/docs"
+	swaggerdocs "gomodel/cmd/gomodel/docs"
 	"gomodel/config"
 	"gomodel/internal/app"
 	"gomodel/internal/observability"
@@ -107,6 +107,7 @@ func main() {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+	swaggerdocs.SwaggerInfo.BasePath = result.Config.Server.BasePath
 
 	factory := providers.NewProviderFactory()
 

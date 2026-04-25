@@ -48,6 +48,11 @@ spec:
                 configMapKeyRef:
                   name: {{ include "gomodel.fullname" . }}
                   key: PORT
+            - name: BASE_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "gomodel.fullname" . }}
+                  key: BASE_PATH
             - name: BODY_SIZE_LIMIT
               valueFrom:
                 configMapKeyRef:

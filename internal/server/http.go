@@ -45,6 +45,7 @@ const (
 
 // Config holds server configuration options
 type Config struct {
+	BasePath                        string                                 // URL path prefix where the app is mounted (default: /)
 	MasterKey                       string                                 // Optional: Master key for authentication
 	Authenticator                   BearerTokenAuthenticator               // Optional: managed API key authenticator
 	MetricsEnabled                  bool                                   // Whether to expose Prometheus metrics endpoint
@@ -83,6 +84,10 @@ type Config struct {
 func New(provider core.RoutableProvider, cfg *Config) *Server {
 	e := echo.New()
 	e.Logger = slog.Default()
+	basePath := configuredBasePath(cfg)
+	if basePath != "/" {
+		e.Pre(stripBasePathMiddleware(basePath))
+	}
 	// Keep client IP handling explicit after Echo v5.1.0 changed RealIP defaults.
 	// Direct extraction is the safe baseline unless a caller opts into trusted
 	// proxy header handling via Config.IPExtractor.

@@ -1,6 +1,16 @@
 (function(global) {
-    function dashboardUsageModule() {
-        return {
+function dashboardUsageModule() {
+    function dashboardModulePath(path) {
+        if (typeof dashboardPath === 'function') {
+            return dashboardPath(path);
+        }
+        if (typeof window !== 'undefined' && typeof window.gomodelPath === 'function') {
+            return window.gomodelPath(path);
+        }
+        return path;
+    }
+
+    return {
             emptyUsageSummary() {
                 return {
                     total_requests: 0,
@@ -307,7 +317,7 @@
             toggleUsageMode(mode) {
                 this.usageMode = mode;
                 const url = mode === 'costs' ? '/admin/dashboard/usage/costs' : '/admin/dashboard/usage';
-                history.pushState(null, '', url);
+                history.pushState(null, '', dashboardModulePath(url));
                 this.renderBarChart();
                 this.renderUserPathChart();
             },

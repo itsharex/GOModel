@@ -163,6 +163,28 @@ func TestExpandString(t *testing.T) {
 	}
 }
 
+func TestNormalizeBasePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{name: "empty defaults to root", input: "", expected: "/"},
+		{name: "root remains root", input: "/", expected: "/"},
+		{name: "adds leading slash", input: "g", expected: "/g"},
+		{name: "trims trailing slash", input: "/g/", expected: "/g"},
+		{name: "cleans duplicate separators", input: "//g//api/", expected: "/g/api"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NormalizeBasePath(tt.input); got != tt.expected {
+				t.Errorf("NormalizeBasePath(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
 // TestApplyEnvOverrides tests the applyEnvOverrides function
 func TestApplyEnvOverrides(t *testing.T) {
 	tests := []struct {
