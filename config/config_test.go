@@ -55,6 +55,7 @@ func clearAllConfigEnvVars(t *testing.T) {
 		"LOGGING_FLUSH_INTERVAL", "LOGGING_RETENTION_DAYS",
 		"USAGE_ENABLED", "ENFORCE_RETURNING_USAGE_DATA",
 		"USAGE_BUFFER_SIZE", "USAGE_FLUSH_INTERVAL", "USAGE_RETENTION_DAYS",
+		"BUDGETS_ENABLED",
 		"GUARDRAILS_ENABLED", "ENABLE_GUARDRAILS_FOR_BATCH_PROCESSING",
 		"FEATURE_FALLBACK_MODE", "FALLBACK_MANUAL_RULES_PATH",
 		"MODEL_OVERRIDES_ENABLED", "MODELS_ENABLED_BY_DEFAULT", "KEEP_ONLY_ALIASES_AT_MODELS_ENDPOINT", "CONFIGURED_PROVIDER_MODELS_MODE",
@@ -63,6 +64,13 @@ func clearAllConfigEnvVars(t *testing.T) {
 	} {
 		t.Setenv(key, "")
 		os.Unsetenv(key)
+	}
+	for _, item := range os.Environ() {
+		key, _, _ := strings.Cut(item, "=")
+		if strings.HasPrefix(key, "SET_BUDGET_") {
+			t.Setenv(key, "")
+			os.Unsetenv(key)
+		}
 	}
 	clearProviderEnvVars(t)
 }
@@ -163,6 +171,9 @@ func TestBuildDefaultConfig(t *testing.T) {
 	if cfg.Usage.RetentionDays != 90 {
 		t.Errorf("expected Usage.RetentionDays=90, got %d", cfg.Usage.RetentionDays)
 	}
+	if !cfg.Budgets.Enabled {
+		t.Error("expected Budgets.Enabled=true")
+	}
 	if cfg.Metrics.Endpoint != "/metrics" {
 		t.Errorf("expected Metrics.Endpoint=/metrics, got %s", cfg.Metrics.Endpoint)
 	}
@@ -209,6 +220,227 @@ func TestBuildDefaultConfig(t *testing.T) {
 	if cfg.Resilience.CircuitBreaker != expectedCB {
 		t.Errorf("expected Resilience.CircuitBreaker=%+v, got %+v", expectedCB, cfg.Resilience.CircuitBreaker)
 	}
+}
+
+func TestLoadBudgetEnvUserPath(t *testing.T) {
+	clearAllConfigEnvVars(t)
+
+	withTempDir(t, func(string) {
+		t.Setenv("SET_BUDGET_USER__PATH__EXAMPLE", "daily=12.5,weekly=50")
+
+		result, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+
+		entries := result.Config.Budgets.UserPaths
+		if len(entries) != 1 {
+			t.Fatalf("expected 1 budget user path, got %d", len(entries))
+		}
+		if got, want := entries[0].Path, "/user/path/example"; got != want {
+			t.Fatalf("budget env path = %q, want %q", got, want)
+		}
+		if len(entries[0].Limits) != 2 {
+			t.Fatalf("expected 2 budget limits, got %d", len(entries[0].Limits))
+		}
+		if got, want := entries[0].Limits[0].PeriodSeconds, int64(86400); got != want {
+			t.Fatalf("daily period seconds = %d, want %d", got, want)
+		}
+		if got, want := entries[0].Limits[0].Amount, 12.5; got != want {
+			t.Fatalf("daily amount = %v, want %v", got, want)
+		}
+		if got, want := entries[0].Limits[1].PeriodSeconds, int64(604800); got != want {
+			t.Fatalf("weekly period seconds = %d, want %d", got, want)
+		}
+		if got, want := entries[0].Limits[1].Amount, 50.0; got != want {
+			t.Fatalf("weekly amount = %v, want %v", got, want)
+		}
+	})
+}
+
+func TestBudgetEnvPathUsesDoubleUnderscoreSeparator(t *testing.T) {
+	tests := []struct {
+		name   string
+		suffix string
+		want   string
+	}{
+		{name: "root", suffix: "", want: "/"},
+		{name: "double underscore separator", suffix: "TEAM__ALPHA", want: "/team/alpha"},
+		{name: "single underscore preserved", suffix: "USER_123", want: "/user_123"},
+		{name: "single underscores preserved per segment", suffix: "USER_123__PROJECT_A", want: "/user_123/project_a"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := budgetEnvPath(tt.suffix); got != tt.want {
+				t.Fatalf("budgetEnvPath(%q) = %q, want %q", tt.suffix, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadBudgetEnvJSONLimitsAreSorted(t *testing.T) {
+	clearAllConfigEnvVars(t)
+
+	withTempDir(t, func(string) {
+		t.Setenv("SET_BUDGET_TEAM__ALPHA", `{"weekly":50,"daily":10,"monthly":100}`)
+
+		result, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+
+		limits := result.Config.Budgets.UserPaths[0].Limits
+		got := []string{limits[0].Period, limits[1].Period, limits[2].Period}
+		want := []string{"daily", "monthly", "weekly"}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("period order = %v, want %v", got, want)
+		}
+	})
+}
+
+func TestLoadBudgetEnvReplacesMatchingYAMLUserPath(t *testing.T) {
+	clearAllConfigEnvVars(t)
+
+	withTempDir(t, func(dir string) {
+		yamlConfig := `
+budgets:
+  user_paths:
+    - path: /team/alpha
+      limits:
+        - period: daily
+          amount: 1
+    - path: /team/beta
+      limits:
+        - period: daily
+          amount: 2
+`
+		if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(yamlConfig), 0644); err != nil {
+			t.Fatalf("Failed to write config.yaml: %v", err)
+		}
+		t.Setenv("SET_BUDGET_TEAM__ALPHA", "weekly=50")
+
+		result, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+
+		entries := result.Config.Budgets.UserPaths
+		if len(entries) != 2 {
+			t.Fatalf("expected 2 budget user paths, got %d: %+v", len(entries), entries)
+		}
+		if entries[0].Path != "/team/beta" || entries[0].Limits[0].Amount != 2 {
+			t.Fatalf("first budget entry = %+v, want untouched /team/beta YAML entry", entries[0])
+		}
+		if entries[1].Path != "/team/alpha" {
+			t.Fatalf("env replacement path = %q, want /team/alpha", entries[1].Path)
+		}
+		if len(entries[1].Limits) != 1 || entries[1].Limits[0].PeriodSeconds != 604800 || entries[1].Limits[0].Amount != 50 {
+			t.Fatalf("env replacement limits = %+v, want weekly=50", entries[1].Limits)
+		}
+	})
+}
+
+func TestLoadBudgetEnvRejectsNonFiniteAmount(t *testing.T) {
+	clearAllConfigEnvVars(t)
+
+	withTempDir(t, func(string) {
+		t.Setenv("SET_BUDGET_TEAM__ALPHA", "daily=NaN")
+
+		_, err := Load()
+		if err == nil {
+			t.Fatal("Load() error = nil, want non-finite budget amount error")
+		}
+		if !strings.Contains(err.Error(), "amount must be a finite number greater than 0") {
+			t.Fatalf("Load() error = %v, want finite amount validation", err)
+		}
+	})
+}
+
+func TestLoadBudgetConfigRejectsDuplicateLogicalBudgets(t *testing.T) {
+	clearAllConfigEnvVars(t)
+
+	withTempDir(t, func(dir string) {
+		yamlConfig := `
+budgets:
+  user_paths:
+    - path: team/alpha
+      limits:
+        - period: daily
+          amount: 1
+    - path: /team/alpha
+      limits:
+        - period_seconds: 86400
+          amount: 2
+`
+		if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(yamlConfig), 0644); err != nil {
+			t.Fatalf("Failed to write config.yaml: %v", err)
+		}
+
+		_, err := Load()
+		if err == nil {
+			t.Fatal("Load() error = nil, want duplicate budget error")
+		}
+		if !strings.Contains(err.Error(), "duplicate budget for path /team/alpha period 86400") {
+			t.Fatalf("Load() error = %v, want duplicate budget validation", err)
+		}
+	})
+}
+
+func TestLoadBudgetEnvDisablesBudgetsWhenUsageTrackingDisabled(t *testing.T) {
+	clearAllConfigEnvVars(t)
+
+	withTempDir(t, func(string) {
+		t.Setenv("USAGE_ENABLED", "false")
+		t.Setenv("SET_BUDGET_USER__PATH__EXAMPLE", "daily=12.5")
+
+		result, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if result.Config.Budgets.Enabled {
+			t.Fatal("expected budgets to be disabled when usage tracking is disabled")
+		}
+		if len(result.Config.Budgets.UserPaths) != 0 {
+			t.Fatalf("expected auto-disabled budgets to ignore env user paths, got %d", len(result.Config.Budgets.UserPaths))
+		}
+	})
+}
+
+func TestLoadBudgetsEnabledDisablesBudgetsWhenUsageTrackingDisabledWithoutSeedBudgets(t *testing.T) {
+	clearAllConfigEnvVars(t)
+
+	withTempDir(t, func(string) {
+		t.Setenv("USAGE_ENABLED", "false")
+
+		result, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if result.Config.Budgets.Enabled {
+			t.Fatal("expected budgets to be disabled when usage tracking is disabled")
+		}
+	})
+}
+
+func TestLoadDisabledBudgetsIgnoreMalformedBudgetEnv(t *testing.T) {
+	clearAllConfigEnvVars(t)
+
+	withTempDir(t, func(string) {
+		t.Setenv("BUDGETS_ENABLED", "false")
+		t.Setenv("SET_BUDGET_USER__PATH__EXAMPLE", "not-a-budget-limit")
+
+		result, err := Load()
+		if err != nil {
+			t.Fatalf("Load() failed: %v", err)
+		}
+		if result.Config.Budgets.Enabled {
+			t.Fatal("expected budgets to be disabled")
+		}
+		if len(result.Config.Budgets.UserPaths) != 0 {
+			t.Fatalf("expected disabled budgets to ignore env user paths, got %d", len(result.Config.Budgets.UserPaths))
+		}
+	})
 }
 
 func TestLoad_ZeroConfig(t *testing.T) {

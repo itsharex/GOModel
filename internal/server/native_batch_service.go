@@ -26,6 +26,7 @@ type nativeBatchService struct {
 	cleanupPreparedBatchInputFile        func(context.Context, string, string)
 	cleanupStoredBatchRewrittenInputFile func(context.Context, *batchstore.StoredBatch) bool
 	usageLogger                          usage.LoggerInterface
+	budgetChecker                        BudgetChecker
 	pricingResolver                      usage.PricingResolver
 
 	orchestrator *gateway.BatchOrchestrator
@@ -46,6 +47,7 @@ func (s *nativeBatchService) batch() *gateway.BatchOrchestrator {
 		CleanupStoredBatchRewrittenInputFile: s.cleanupStoredBatchRewrittenInputFile,
 		UsageLogger:                          s.usageLogger,
 		PricingResolver:                      s.pricingResolver,
+		BudgetEnforcer:                       batchBudgetEnforcer(s.budgetChecker),
 	})
 	return s.orchestrator
 }
@@ -163,6 +165,15 @@ func batchIDFromRequest(c *echo.Context) (string, error) {
 		return "", core.NewInvalidRequestError("batch id is required", nil)
 	}
 	return id, nil
+}
+
+func batchBudgetEnforcer(checker BudgetChecker) func(context.Context) error {
+	if checker == nil {
+		return nil
+	}
+	return func(ctx context.Context) error {
+		return enforceBudgetForContext(ctx, checker)
+	}
 }
 
 func auditBatchEntry(c *echo.Context, providerType string) {

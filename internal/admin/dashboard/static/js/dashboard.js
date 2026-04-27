@@ -187,6 +187,7 @@ function dashboard() {
       page = [
         "overview",
         "usage",
+        "budgets",
         "models",
         "workflows",
         "audit-logs",
@@ -219,9 +220,15 @@ function dashboard() {
       ) {
         this.fetchGuardrailsPage();
       }
+      if (page === "budgets" && typeof this.fetchBudgetsPage === "function") {
+        this.fetchBudgetsPage();
+      }
       if (page === "settings") {
         if (typeof this.ensureTimezoneOptions === "function") {
           this.ensureTimezoneOptions();
+        }
+        if (typeof this.fetchBudgetSettings === "function") {
+          this.fetchBudgetSettings();
         }
       }
       if (page === "overview") this.renderChart();
@@ -382,7 +389,9 @@ function dashboard() {
           (this.aliasFormOpen || this.modelOverrideFormOpen)) ||
         (this.page === "workflows" && this.workflowFormOpen) ||
         (this.page === "guardrails" && this.guardrailFormOpen) ||
-        (this.page === "auth-keys" && this.authKeyFormOpen)
+        (this.page === "auth-keys" && this.authKeyFormOpen) ||
+        (this.page === "budgets" && this.budgetFormOpen) ||
+        this.budgetResetDialogOpen
       );
     },
 
@@ -476,6 +485,12 @@ function dashboard() {
       }
       if (typeof this.fetchWorkflowsPage === "function") {
         requests.push(this.fetchWorkflowsPage());
+      }
+      if (
+        this.page === "budgets" &&
+        typeof this.fetchBudgetsPage === "function"
+      ) {
+        requests.push(this.fetchBudgetsPage());
       }
       if (
         this.hasCalendarModule &&
@@ -948,6 +963,12 @@ function dashboard() {
         ? dashboardGuardrailsModule
         : null,
       "dashboardGuardrailsModule",
+    ),
+    resolveModuleFactory(
+      typeof dashboardBudgetsModule === "function"
+        ? dashboardBudgetsModule
+        : null,
+      "dashboardBudgetsModule",
     ),
     resolveModuleFactory(
       typeof dashboardWorkflowsModule === "function"

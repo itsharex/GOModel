@@ -52,6 +52,7 @@ type Config struct {
 	PprofEnabled                    bool                                   // Whether to expose debug profiling routes at /debug/pprof/*
 	AuditLogger                     auditlog.LoggerInterface               // Optional: Audit logger for request/response logging
 	UsageLogger                     usage.LoggerInterface                  // Optional: Usage logger for token tracking
+	BudgetChecker                   BudgetChecker                          // Optional: per-user-path budget checker
 	PricingResolver                 usage.PricingResolver                  // Optional: Resolves pricing for cost calculation
 	ModelResolver                   RequestModelResolver                   // Optional: explicit model resolver used during workflow resolution
 	ModelAuthorizer                 RequestModelAuthorizer                 // Optional: request-scoped concrete model access controller
@@ -97,10 +98,12 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 	// Get loggers from config (may be nil)
 	var auditLogger auditlog.LoggerInterface
 	var usageLogger usage.LoggerInterface
+	var budgetChecker BudgetChecker
 	var pricingResolver usage.PricingResolver
 	if cfg != nil {
 		auditLogger = cfg.AuditLogger
 		usageLogger = cfg.UsageLogger
+		budgetChecker = cfg.BudgetChecker
 		pricingResolver = cfg.PricingResolver
 	}
 
@@ -118,6 +121,7 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 	}
 
 	handler := newHandlerWithAuthorizer(provider, auditLogger, usageLogger, pricingResolver, modelResolver, modelAuthorizer, workflowPolicyResolver, fallbackResolver, translatedRequestPatcher)
+	handler.budgetChecker = budgetChecker
 	if cfg != nil {
 		handler.batchRequestPreparer = cfg.BatchRequestPreparer
 		handler.exposedModelLister = cfg.ExposedModelLister
@@ -323,6 +327,13 @@ func New(provider core.RoutableProvider, cfg *Config) *Server {
 		adminAPI.GET("/audit/conversation", cfg.AdminHandler.AuditConversation)
 		adminAPI.GET("/providers/status", cfg.AdminHandler.ProviderStatus)
 		adminAPI.POST("/runtime/refresh", cfg.AdminHandler.RefreshRuntime)
+		adminAPI.GET("/budgets", cfg.AdminHandler.ListBudgets)
+		adminAPI.PUT("/budgets/:user_path/:period", cfg.AdminHandler.UpsertBudget)
+		adminAPI.DELETE("/budgets/:user_path/:period", cfg.AdminHandler.DeleteBudget)
+		adminAPI.GET("/budgets/settings", cfg.AdminHandler.BudgetSettings)
+		adminAPI.PUT("/budgets/settings", cfg.AdminHandler.UpdateBudgetSettings)
+		adminAPI.POST("/budgets/reset-one", cfg.AdminHandler.ResetBudget)
+		adminAPI.POST("/budgets/reset", cfg.AdminHandler.ResetBudgets)
 		adminAPI.GET("/models", cfg.AdminHandler.ListModels)
 		adminAPI.GET("/models/categories", cfg.AdminHandler.ListCategories)
 		adminAPI.GET("/model-overrides", cfg.AdminHandler.ListModelOverrides)

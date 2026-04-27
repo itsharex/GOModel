@@ -96,16 +96,19 @@ type WorkflowFeatures struct {
 	Cache      bool `json:"cache"`
 	Audit      bool `json:"audit"`
 	Usage      bool `json:"usage"`
+	Budget     bool `json:"budget"`
 	Guardrails bool `json:"guardrails"`
 	Fallback   bool `json:"fallback"`
 }
 
 // ApplyUpperBound returns features with process-level caps applied.
 func (f WorkflowFeatures) ApplyUpperBound(caps WorkflowFeatures) WorkflowFeatures {
+	usage := f.Usage && caps.Usage
 	return WorkflowFeatures{
 		Cache:      f.Cache && caps.Cache,
 		Audit:      f.Audit && caps.Audit,
-		Usage:      f.Usage && caps.Usage,
+		Usage:      usage,
+		Budget:     usage && f.Budget && caps.Budget,
 		Guardrails: f.Guardrails && caps.Guardrails,
 		Fallback:   f.Fallback && caps.Fallback,
 	}
@@ -118,6 +121,7 @@ func DefaultWorkflowFeatures() WorkflowFeatures {
 		Cache:      true,
 		Audit:      true,
 		Usage:      true,
+		Budget:     true,
 		Guardrails: true,
 		Fallback:   true,
 	}
@@ -189,6 +193,11 @@ func (p *Workflow) AuditEnabled() bool {
 // UsageEnabled reports whether usage tracking is enabled for the request.
 func (p *Workflow) UsageEnabled() bool {
 	return p.featureEnabled(func(features WorkflowFeatures) bool { return features.Usage })
+}
+
+// BudgetEnabled reports whether budget checks are enabled for the request.
+func (p *Workflow) BudgetEnabled() bool {
+	return p.featureEnabled(func(features WorkflowFeatures) bool { return features.Budget })
 }
 
 // GuardrailsEnabled reports whether guardrail processing is enabled for the request.

@@ -33,6 +33,7 @@ type translatedInferenceService struct {
 	translatedRequestPatcher TranslatedRequestPatcher
 	logger                   auditlog.LoggerInterface
 	usageLogger              usage.LoggerInterface
+	budgetChecker            BudgetChecker
 	pricingResolver          usage.PricingResolver
 	responseCache            *responsecache.ResponseCacheMiddleware
 	guardrailsHash           string
@@ -80,6 +81,10 @@ func (s *translatedInferenceService) handleChatCompletion(c *echo.Context) error
 func (s *translatedInferenceService) dispatchChatCompletion(c *echo.Context, req *core.ChatRequest, workflow *core.Workflow) error {
 	ctx := c.Request().Context()
 	requestID := requestIDFromContextOrHeader(c.Request())
+
+	if err := enforceBudget(c, s.budgetChecker); err != nil {
+		return handleError(c, err)
+	}
 
 	if req.Stream {
 		if len(s.inference().FallbackSelectors(workflow)) == 0 {
@@ -196,6 +201,10 @@ func responsesPreparedFields(prepared *gateway.PreparedResponsesRequest) (contex
 
 // handleWithCache routes translated requests through the response cache when
 // enabled. The request has already been resolved and patched by the orchestrator.
+// Cache hits intentionally return before dispatch and budget enforcement because
+// they do not incur provider spend. Cache misses still run dispatch, where
+// dispatchChatCompletion and dispatchResponses call enforceBudget before any
+// provider request.
 func handleWithCache[R any](
 	s *translatedInferenceService,
 	c *echo.Context,
@@ -220,6 +229,10 @@ func handleWithCache[R any](
 func (s *translatedInferenceService) dispatchResponses(c *echo.Context, req *core.ResponsesRequest, workflow *core.Workflow) error {
 	ctx := c.Request().Context()
 	requestID := requestIDFromContextOrHeader(c.Request())
+
+	if err := enforceBudget(c, s.budgetChecker); err != nil {
+		return handleError(c, err)
+	}
 
 	if req.Stream {
 		result, err := s.inference().StreamResponses(ctx, workflow, req)
@@ -375,6 +388,10 @@ func (s *translatedInferenceService) Embeddings(c *echo.Context) error {
 		return handleError(c, err)
 	}
 	attachPreparedWorkflow(c, prepared.Context, prepared.Workflow)
+
+	if err := enforceBudget(c, s.budgetChecker); err != nil {
+		return handleError(c, err)
+	}
 
 	requestID := requestIDFromContextOrHeader(c.Request())
 	result, err := s.inference().ExecuteEmbeddings(c.Request().Context(), prepared.Workflow, prepared.Request, requestID, "/v1/embeddings")

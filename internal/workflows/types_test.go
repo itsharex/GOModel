@@ -123,6 +123,50 @@ func TestFeatureFlagsRuntimeFeatures_FallbackDefaultsToTrue(t *testing.T) {
 	}
 }
 
+func TestFeatureFlagsRuntimeFeatures_DisablesBudgetWhenUsageDisabled(t *testing.T) {
+	t.Parallel()
+
+	explicitBudget := true
+	tests := []struct {
+		name   string
+		flags  FeatureFlags
+		budget bool
+	}{
+		{
+			name:   "implicit budget",
+			flags:  FeatureFlags{Usage: false},
+			budget: false,
+		},
+		{
+			name:   "explicit budget",
+			flags:  FeatureFlags{Usage: false, Budget: &explicitBudget},
+			budget: false,
+		},
+		{
+			name:   "implicit budget with usage enabled",
+			flags:  FeatureFlags{Usage: true},
+			budget: true,
+		},
+		{
+			name:   "explicit budget with usage enabled",
+			flags:  FeatureFlags{Usage: true, Budget: &explicitBudget},
+			budget: true,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			features := tt.flags.runtimeFeatures()
+			if features.Budget != tt.budget {
+				t.Fatalf("runtimeFeatures().Budget = %v, want %v", features.Budget, tt.budget)
+			}
+		})
+	}
+}
+
 func TestNormalizePayload_CanonicalizesFallbackForStableWorkflowHash(t *testing.T) {
 	explicitTrue := true
 
@@ -147,6 +191,7 @@ func TestNormalizePayload_CanonicalizesFallbackForStableWorkflowHash(t *testing.
 			Usage:      true,
 			Guardrails: false,
 			Fallback:   &explicitTrue,
+			Budget:     &explicitTrue,
 		},
 	})
 	if err != nil {
@@ -158,6 +203,12 @@ func TestNormalizePayload_CanonicalizesFallbackForStableWorkflowHash(t *testing.
 	}
 	if explicitPayload.Features.Fallback == nil || !*explicitPayload.Features.Fallback {
 		t.Fatalf("explicit payload fallback = %v, want explicit true", explicitPayload.Features.Fallback)
+	}
+	if implicitPayload.Features.Budget == nil || !*implicitPayload.Features.Budget {
+		t.Fatalf("implicit payload budget = %v, want explicit true", implicitPayload.Features.Budget)
+	}
+	if explicitPayload.Features.Budget == nil || !*explicitPayload.Features.Budget {
+		t.Fatalf("explicit payload budget = %v, want explicit true", explicitPayload.Features.Budget)
 	}
 	if implicitHash != explicitHash {
 		t.Fatalf("workflow hash mismatch: implicit=%q explicit=%q", implicitHash, explicitHash)
