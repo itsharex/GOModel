@@ -17,8 +17,9 @@ const defaultBaseURL = "https://api.deepseek.com"
 
 // Registration provides factory registration for the DeepSeek provider.
 var Registration = providers.Registration{
-	Type: "deepseek",
-	New:  New,
+	Type:                        "deepseek",
+	New:                         New,
+	PassthroughSemanticEnricher: passthroughSemanticEnricher{},
 	Discovery: providers.DiscoveryConfig{
 		DefaultBaseURL: defaultBaseURL,
 	},
@@ -91,6 +92,10 @@ func adaptChatRequest(req *core.ChatRequest) (any, error) {
 
 	effort, _ := json.Marshal(normalizeReasoningEffort(req.Reasoning.Effort))
 	raw["reasoning_effort"] = effort
+	// Delete the full reasoning object: DeepSeek accepts reasoning_effort as a
+	// top-level string only. Other reasoning fields (e.g. budget_tokens) are not
+	// forwarded because DeepSeek has no equivalent. Update this if DeepSeek
+	// expands its reasoning API surface.
 	delete(raw, "reasoning")
 	return raw, nil
 }
@@ -168,15 +173,44 @@ func (p *Provider) ListModels(ctx context.Context) (*core.ModelsResponse, error)
 
 // Responses sends a Responses API request to DeepSeek using chat-completions translation.
 func (p *Provider) Responses(ctx context.Context, req *core.ResponsesRequest) (*core.ResponsesResponse, error) {
+	if req == nil {
+		return nil, core.NewInvalidRequestError("responses request is required", nil)
+	}
 	return providers.ResponsesViaChat(ctx, p, req)
 }
 
 // StreamResponses streams a Responses API request to DeepSeek using chat-completions translation.
 func (p *Provider) StreamResponses(ctx context.Context, req *core.ResponsesRequest) (io.ReadCloser, error) {
+	if req == nil {
+		return nil, core.NewInvalidRequestError("responses request is required", nil)
+	}
 	return providers.StreamResponsesViaChat(ctx, p, req, "deepseek")
 }
 
 // Embeddings returns an error because DeepSeek does not expose an embeddings endpoint.
 func (p *Provider) Embeddings(_ context.Context, _ *core.EmbeddingRequest) (*core.EmbeddingResponse, error) {
 	return nil, core.NewInvalidRequestError("deepseek does not support embeddings", nil)
+}
+
+// Passthrough forwards a raw request to DeepSeek without any transformation,
+// enabling direct access to provider-native endpoints such as /beta/completions
+// (FIM) that GOModel does not expose as first-class typed operations.
+func (p *Provider) Passthrough(ctx context.Context, req *core.PassthroughRequest) (*core.PassthroughResponse, error) {
+	if req == nil {
+		return nil, core.NewInvalidRequestError("passthrough request is required", nil)
+	}
+	resp, err := p.client.DoPassthrough(ctx, llmclient.Request{
+		Method:        req.Method,
+		Endpoint:      providers.PassthroughEndpoint(req.Endpoint),
+		RawBodyReader: req.Body,
+		Headers:       req.Headers,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &core.PassthroughResponse{
+		StatusCode: resp.StatusCode,
+		Headers:    providers.CloneHTTPHeaders(resp.Header),
+		Body:       resp.Body,
+	}, nil
 }

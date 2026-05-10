@@ -227,6 +227,183 @@ func TestProvider_DoesNotExposeOptionalNativeInterfaces(t *testing.T) {
 	}
 }
 
+func TestPassthrough_ForwardsRequestWithBearerAuth(t *testing.T) {
+	var gotPath, gotAuth, gotMethod string
+	var gotBody []byte
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		gotMethod = r.Method
+		gotBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"object":"fim_completion","choices":[{"text":"world"}]}`))
+	}))
+	defer server.Close()
+
+	provider := NewWithHTTPClient("deepseek-key", server.URL, server.Client(), llmclient.Hooks{})
+
+	body := strings.NewReader(`{"model":"deepseek-v4-pro","prompt":"hello "}`)
+	resp, err := provider.Passthrough(context.Background(), &core.PassthroughRequest{
+		Method:   http.MethodPost,
+		Endpoint: "/beta/completions",
+		Body:     io.NopCloser(body),
+	})
+	if err != nil {
+		t.Fatalf("Passthrough() error = %v", err)
+	}
+	defer resp.Body.Close()
+	if gotPath != "/beta/completions" {
+		t.Fatalf("path = %q, want /beta/completions", gotPath)
+	}
+	if gotAuth != "Bearer deepseek-key" {
+		t.Fatalf("authorization = %q, want Bearer deepseek-key", gotAuth)
+	}
+	if gotMethod != http.MethodPost {
+		t.Fatalf("method = %q, want POST", gotMethod)
+	}
+	if !strings.Contains(string(gotBody), "deepseek-v4-pro") {
+		t.Fatalf("body = %q, want body containing deepseek-v4-pro", gotBody)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
+func TestPassthrough_NilRequest_ReturnsError(t *testing.T) {
+	provider := NewWithHTTPClient("deepseek-key", "", nil, llmclient.Hooks{})
+	_, err := provider.Passthrough(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error for nil passthrough request, got nil")
+	}
+}
+
+func TestPassthrough_ForwardsRequestHeaders(t *testing.T) {
+	var gotContentType string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	provider := NewWithHTTPClient("deepseek-key", server.URL, server.Client(), llmclient.Hooks{})
+
+	resp, err := provider.Passthrough(context.Background(), &core.PassthroughRequest{
+		Method:   http.MethodPost,
+		Endpoint: "/beta/completions",
+		Body:     io.NopCloser(strings.NewReader(`{}`)),
+		Headers:  http.Header{"Content-Type": []string{"application/json"}},
+	})
+	if err != nil {
+		t.Fatalf("Passthrough() error = %v", err)
+	}
+	defer resp.Body.Close()
+	if gotContentType != "application/json" {
+		t.Fatalf("Content-Type = %q, want application/json", gotContentType)
+	}
+}
+
+func TestPassthrough_PreservesNon2xxStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"error":{"code":"rate_limit_exceeded"}}`))
+	}))
+	defer server.Close()
+
+	provider := NewWithHTTPClient("deepseek-key", server.URL, server.Client(), llmclient.Hooks{})
+
+	resp, err := provider.Passthrough(context.Background(), &core.PassthroughRequest{
+		Method:   http.MethodPost,
+		Endpoint: "/beta/completions",
+		Body:     io.NopCloser(strings.NewReader(`{}`)),
+	})
+	if err != nil {
+		t.Fatalf("Passthrough() error = %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429", resp.StatusCode)
+	}
+}
+
+func TestPassthrough_ForwardsQueryString(t *testing.T) {
+	var gotPath string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.RequestURI()
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer server.Close()
+
+	provider := NewWithHTTPClient("deepseek-key", server.URL, server.Client(), llmclient.Hooks{})
+
+	resp, err := provider.Passthrough(context.Background(), &core.PassthroughRequest{
+		Method:   http.MethodGet,
+		Endpoint: "/beta/completions?stream=true",
+		Body:     io.NopCloser(strings.NewReader(``)),
+	})
+	if err != nil {
+		t.Fatalf("Passthrough() error = %v", err)
+	}
+	defer resp.Body.Close()
+	if gotPath != "/beta/completions?stream=true" {
+		t.Fatalf("path = %q, want /beta/completions?stream=true", gotPath)
+	}
+}
+
+func TestPassthrough_PreservesResponseBody(t *testing.T) {
+	const upstreamBody = `{"error":{"message":"rate_limit_exceeded","type":"rate_limit_error"}}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(upstreamBody))
+	}))
+	defer server.Close()
+
+	provider := NewWithHTTPClient("deepseek-key", server.URL, server.Client(), llmclient.Hooks{})
+
+	resp, err := provider.Passthrough(context.Background(), &core.PassthroughRequest{
+		Method:   http.MethodPost,
+		Endpoint: "/beta/completions",
+		Body:     io.NopCloser(strings.NewReader(`{}`)),
+	})
+	if err != nil {
+		t.Fatalf("Passthrough() error = %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("ReadAll() error = %v", err)
+	}
+	if string(body) != upstreamBody {
+		t.Fatalf("response body = %q, want %q", string(body), upstreamBody)
+	}
+}
+
+func TestProvider_ImplementsPassthroughProvider(t *testing.T) {
+	provider := NewWithHTTPClient("deepseek-key", "", nil, llmclient.Hooks{})
+	var _ core.PassthroughProvider = provider
+}
+
+func TestResponses_NilRequest_ReturnsError(t *testing.T) {
+	provider := NewWithHTTPClient("deepseek-key", "", nil, llmclient.Hooks{})
+	_, err := provider.Responses(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error for nil Responses request, got nil")
+	}
+}
+
+func TestStreamResponses_NilRequest_ReturnsError(t *testing.T) {
+	provider := NewWithHTTPClient("deepseek-key", "", nil, llmclient.Hooks{})
+	_, err := provider.StreamResponses(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error for nil StreamResponses request, got nil")
+	}
+}
+
 func TestEmbeddings_ReturnsUnsupported(t *testing.T) {
 	provider := NewWithHTTPClient("deepseek-key", "", nil, llmclient.Hooks{})
 
